@@ -1,0 +1,92 @@
+<script setup>
+import GsapFade from '@/components/GsapFade.vue'
+
+// import HeroSection from '@/sections/homeSections/HeroSection.vue'
+// import DiscountSection from '@/sections/homeSections/DiscountSection.vue'
+// import TopProjectSection from '@/sections/homeSections/TopProjectSection.vue'
+// import TopResearchedSection from '@/sections/homeSections/TopResearchedSection.vue'
+// import UnbeatableDealsSection from '@/sections/homeSections/UnbeatableDealsSection.vue'
+// import WorkSection from '@/sections/homeSections/WorkSection.vue'
+// import CaseStudySection from '@/sections/homeSections/CaseStudySection.vue'
+// import ProjectCarouselSection from '@/sections/homeSections/ProjectCarouselSection.vue'
+// import CalculateSection from '@/sections/homeSections/CalculateSection.vue'
+// import BlogSection from '@/sections/homeSections/BlogSection.vue'
+// import SecuredInvestmentSection from '@/sections/homeSections/SecuredInvestmentSection.vue'
+// import EmiCalculatorSection from '@/sections/homeSections/EmiCalculatorSection.vue'
+// import TestimonialSection from '@/sections/homeSections/TestimonialSection.vue'
+// import FaqSection from '@/sections/homeSections/FaqSection.vue'
+
+import HeroSection from '@/sections/homeSection2/HeroSection.vue';
+import ProjectByTimeSection from '@/sections/homeSection2/ProjectByTimeSection.vue';
+import ProjectByBudgetSection from '@/sections/homeSection2/ProjectByBudgetSection.vue';
+import PropertiesForSaleSection from '@/sections/homeSection2/PropertiesForSaleSection.vue';
+import PropertiesForRentSection from '@/sections/homeSection2/PropertiesForRentSection.vue';
+</script>
+
+<template>
+  <main class="">
+    <GsapFade direction="bottom" :duration="0.8" :triggerOffset="120" class="relative z-20">
+      <HeroSection />
+    </GsapFade>
+
+    <ProjectByTimeSection/>
+
+    <ProjectByBudgetSection/>
+
+    <PropertiesForSaleSection/>
+
+    <PropertiesForRentSection/>
+
+    <!-- <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <DiscountSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <TopProjectSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <ProjectCarouselSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <TopResearchedSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <UnbeatableDealsSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <WorkSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <CaseStudySection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <CalculateSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <BlogSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <SecuredInvestmentSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <EmiCalculatorSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <TestimonialSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" delay="0.15" :triggerOffset="120">
+      <FaqSection />
+    </GsapFade> -->
+  </main>
+</template>
