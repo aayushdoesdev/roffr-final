@@ -1,36 +1,134 @@
-<script setup></script>
+<script setup>
+import { onMounted, ref, onUnmounted } from 'vue';
+import gsap from 'gsap';
+
+const sectionRef = ref(null);
+let ctx = null;
+
+onMounted(() => {
+  ctx = gsap.context(() => {
+    // Reveal animations
+    gsap.from('.cta-content > *', {
+      scrollTrigger: {
+        trigger: sectionRef.value,
+        start: 'top 85%',
+      },
+      y: 40,
+      opacity: 0,
+      stagger: 0.15,
+      duration: 1,
+      ease: 'power3.out'
+    });
+  }, sectionRef.value);
+});
+
+onUnmounted(() => { if (ctx) ctx.kill(); });
+</script>
 
 <template>
-  <section class="max-w-7xl mx-auto py-20 px-4 2xl:px-0">
-    <div class="bg-[#FAF8F9] px-4 xl:px-16 py-6 pb-0 rounded-3xl flex flex-col xl:flex-row items-center">
-      <div class="w-full xl:w-1/2">
-        <h1 class="title-text">Contact Us</h1>
-        <p>Have any queries? We'd love to hear from you.</p>
+  <section ref="sectionRef" class="contact-cta">
+    <div class="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center text-center">
+      
+      <div class="cta-content max-w-3xl flex flex-col items-center gap-6">
+        <h2 class="title-text">
+          Ready to build<br />
+          your<br />
+          financial future?
+        </h2>
 
-        <div class="flex flex-col md:flex-row items-start md:items-center gap-6 mt-6">
-            <div class="flex items-center gap-2">
-                <i class="pi pi-phone bg-black text-white p-4 rounded-xl"></i>
-                <div class="font-outfit">
-                    <p class="text-[14px]">Call Us</p>
-                    <p class="font-semibold text-[20px]">0120-6866600</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <i class="pi pi-phone bg-black text-white p-4 rounded-xl"></i>
-                <div class="font-outfit">
-                    <p class="text-[14px]">Mail Us</p>
-                    <p class="font-semibold text-[20px]">roffrs@gmail.com</p>
-                </div>
-            </div>
+        <p class="subtitle-text">
+          Join 50,000+ borrowers who chose architectural precision over traditional confusion.
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-4 mt-8">
+          <button class="btn-dark">
+            Begin Application
+          </button>
+          <button class="btn-light">
+            Save Quote
+          </button>
         </div>
       </div>
-      <div class="w-full xl:w-1/2 flex justify-center">
-        <img
-          src="/svg/Loanpage/contact.svg"
-          alt=""
-          class=""
-        />
-      </div>
+
     </div>
   </section>
 </template>
+
+<style scoped>
+.contact-cta {
+  background: white; /* Clean white as seen in image */
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle glow effect on the right as seen in screenshot */
+.contact-cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -10%;
+  width: 40%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(254, 243, 232, 0.5) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.title-text {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 800;
+  color: #111111;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.subtitle-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.1rem;
+  color: #555555;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.btn-dark {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 1.25rem 2.5rem;
+  border-radius: 4px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-dark:hover {
+  background-color: #000000;
+  transform: translateY(-2px);
+}
+
+.btn-light {
+  background-color: #e8e8e8;
+  color: #1a1a1a;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 1.25rem 2.5rem;
+  border-radius: 4px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-light:hover {
+  background-color: #dddddd;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 640px) {
+  .title-text {
+    font-size: 2.25rem;
+  }
+  .btn-dark, .btn-light {
+    width: 100%;
+  }
+}
+</style>
