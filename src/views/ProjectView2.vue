@@ -80,7 +80,7 @@ const suggestionsList = computed(() => {
 });
 
 const performSearch = async () => {
-  await projectStore.getProjectPropertyList(
+  await projectStore.getProjectList(
     "project",
     searchInput.value,
     selectedCity.value,
@@ -96,19 +96,15 @@ onMounted(async () => {
     if (route.query.q) searchInput.value = route.query.q;
     await performSearch();
   } else {
-    await projectStore.getProjectPropertyList();
+    await projectStore.getProjectList();
   }
   await projectStore.getProjectCities();
 });
 
 const formatINR = (num) => `₹ ${Number(num || 0).toLocaleString("en-IN")}`;
 
-const redirect = (id, type = selectedType.value) => {
-  if (type === "property") {
-    router.push(`/property-details/${id}`);
-  } else {
+const redirect = (id) => {
     router.push(`/project-details/${id}`);
-  }
 };
 
 // suggestions
@@ -322,6 +318,7 @@ const onCardHover = (project) => {
 
 <template>
   <section class="max-w-7xl mx-auto px-4 2xl:px-0 mt-20 pb-10">
+    <!-- {{ projectPropertyListData }} -->
     <div class="flex flex-col xl:flex-row items-center justify-between">
       <h1 class="title-text">Select to explore</h1>
       <div class="flex items-center justify-center xl:justify-start gap-3 flex-wrap mt-4 xl:mt-0">
@@ -499,13 +496,13 @@ const onCardHover = (project) => {
       </div>
     </div>
 
-    <div class="mt-6">
-      <div class="border rounded-xl">
+    <div class="mt-6 space-y-6">
+      <div v-for="item in projectPropertyListData" class="border rounded-xl">
         <div class="p-4 flex flex-col lg:flex-row gap-6">
           <!-- LEFT IMAGE -->
           <div class="w-full lg:w-[28%]">
             <img
-              src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920"
+              :src="item?.propertyPictures[0]"
               alt="project"
               class="w-full h-[220px] md:h-[300px] object-cover rounded-xl"
             />
@@ -515,11 +512,11 @@ const onCardHover = (project) => {
           <div class="w-full lg:w-[52%] flex flex-col justify-between">
             <!-- Title -->
             <div>
-              <h2 class="text-xl md:text-2xl font-semibold">
-                Vision Bela Vista
+              <h2 @click="redirect(item?._id)" class="text-xl md:text-2xl font-semibold cursor-pointer">
+                {{ item?.projectName }}
               </h2>
               <p class="text-gray-500 text-sm mt-1">
-                Vision Developer · Marna Siolim, Siolim
+                {{ item?.builderName }} · {{ item?.venue }}
               </p>
 
               <!-- INFO ROWS -->
@@ -572,7 +569,7 @@ const onCardHover = (project) => {
             <span
               class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium"
             >
-              Ready to Move
+              {{ item?.projectStatus }}
             </span>
             <span
               class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium"

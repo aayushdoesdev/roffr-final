@@ -2,7 +2,7 @@ const endpoints = {
   byAffordability: "/projects/by-affordability",
   groupBuying: "/projects/exclusive-projects",
   getProjectById: "/projects/project-detail",
-  getProjectProperty: "/search/list",
+  getProjectProperty: "projects",
   search: "/search/list",
   searchSuggestion: "/search/search-suggestions",
   blog: "/blogs/active",

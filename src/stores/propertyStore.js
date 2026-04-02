@@ -11,26 +11,26 @@ export const usePropertyStore = defineStore("property", () => {
   const pageSize = ref(10);
   const totalpages = ref(0);
 
-  //   const getProperty = async () => {
-  //     try {
-  //       const params = {
-  //          pageSize: pageSize.value,
-  //         pageNumber: pageNumber.value,
-  //       };
-  //       const response = await makeRequest(
-  //         endpoints.property,
-  //         "GET",
-  //         {},
-  //         {},
-  //         params,
-  //         0
-  //       );
+    const getProperty = async () => {
+      try {
+        const params = {
+           pageSize: pageSize.value,
+          pageNumber: pageNumber.value,
+        };
+        const response = await makeRequest(
+          endpoints.property,
+          "GET",
+          {},
+          {},
+          params,
+          0
+        );
 
-  //       propertyData.value = response?.data;
-  //     } catch (error) {
-  //       console.error("Error in fetching specific project data", error);
-  //     }
-  //   };
+        propertyData.value = response?.data;
+      } catch (error) {
+        console.error("Error in fetching specific project data", error);
+      }
+    };
 
   const getPropertyById = async (id) => {
     try {

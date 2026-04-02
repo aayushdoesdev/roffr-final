@@ -6,7 +6,7 @@ import { ref } from "vue";
 export const useProjectStore = defineStore("project", () => {
   const projectAffordablityData = ref([]);
   const groupBuyingData = ref([]);
-  const specificPropertyDetails = ref([]);
+  const specificProjectDetails = ref([]);
   const projectPropertyListData = ref([]);
   const uniqueCitiesData = ref([]);
   const wishlistData = ref([]);
@@ -17,18 +17,18 @@ export const useProjectStore = defineStore("project", () => {
 
   const getProjectAffordiablityData = async (
     city = "mumbai",
-    affordability = "affordable"
+    affordability = "asc"
   ) => {
     try {
       const params = {
-        city: city,
-        affordability: affordability,
+        // searchQuery: city,
+        sortOrder: affordability,
         pageSize: pageSize.value,
         pageNumber: pageNumber.value,
       };
 
       const response = await makeRequest(
-        endpoints.byAffordability,
+        endpoints.getProjectProperty,
         "GET",
         {},
         {},
@@ -36,7 +36,7 @@ export const useProjectStore = defineStore("project", () => {
         0
       );
 
-      projectAffordablityData.value = response?.data;
+      projectAffordablityData.value = response?.data?.projects;
       totalpages.value = response?.data?.totalPages;
       pageSize.value = response?.data?.pageSize;
       pageNumber.value = response?.data?.pageNumber;
@@ -74,13 +74,13 @@ export const useProjectStore = defineStore("project", () => {
         id
       );
 
-      specificPropertyDetails.value = response?.data?.project;
+      specificProjectDetails.value = response?.data;
     } catch (error) {
       console.error("Error in fetching specific project data", error);
     }
   };
 
-  const getProjectPropertyList = async (
+  const getProjectList = async (
     type = "project",
     search = "",
     city = ""
@@ -105,7 +105,7 @@ export const useProjectStore = defineStore("project", () => {
         0
       );
 
-      projectPropertyListData.value = response?.data?.results;
+      projectPropertyListData.value = response?.data?.projects;
       totalpages.value = response?.data?.total;
       pageSize.value = response?.data?.limit;
       pageNumber.value = response?.data?.page;
@@ -211,8 +211,8 @@ export const useProjectStore = defineStore("project", () => {
     getProjectAffordiablityData,
     groupBuyingData,
     getProjectById,
-    specificPropertyDetails,
-    getProjectPropertyList,
+    specificProjectDetails,
+    getProjectList,
     projectPropertyListData,
     getProjectCities,
     uniqueCitiesData,

@@ -2,7 +2,7 @@ import axios from "axios";
 
 // === BASE CONFIG ===
 
-export const BASE_URL = "https://api-dealzo.brahmaastra.ai"; // Replace with your real API base URL
+export const BASE_URL = "https://api-chanakya-astra-service.brahmaastra.ai"; // Replace with your real API base URL
 axios.defaults.baseURL = BASE_URL;
 
 // === MAKE REQUEST FUNCTION ===

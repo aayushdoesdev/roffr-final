@@ -19,7 +19,7 @@ import GsapFade from '@/components/GsapFade.vue'
 import HeroSection from '@/sections/homeSection2/HeroSection.vue';
 import ProjectByTimeSection from '@/sections/homeSection2/ProjectByTimeSection.vue';
 import ProjectByBudgetSection from '@/sections/homeSection2/ProjectByBudgetSection.vue';
-import PropertiesForSaleSection from '@/sections/homeSection2/PropertiesForSaleSection.vue';
+import ExclusiveProjectSection from '@/sections/homeSection2/ExclusiveProjectSection.vue';
 import PropertiesForRentSection from '@/sections/homeSection2/PropertiesForRentSection.vue';
 </script>
 
@@ -33,7 +33,7 @@ import PropertiesForRentSection from '@/sections/homeSection2/PropertiesForRentS
 
     <ProjectByBudgetSection/>
 
-    <PropertiesForSaleSection/>
+    <ExclusiveProjectSection/>
 
     <PropertiesForRentSection/>
 

@@ -1,8 +1,18 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { useProjectStore } from "@/stores/projectStore";
+import { storeToRefs } from "pinia";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import "swiper/css";
 
+const projectStore = useProjectStore();
+const { projectPropertyListData } = storeToRefs(projectStore);
+
+onMounted(async () => {
+  await projectStore.getProjectList();
+});
+
+// Tabs
 const tabs = [
   { label: "Under Construction", key: "under" },
   { label: "Ready to Move", key: "ready" },
@@ -11,57 +21,41 @@ const tabs = [
 
 const activeTab = ref("under");
 
-// Data like your UI (possession-based cards)
-const data = {
-  under: [
-    {
-      title: "Possession in '27",
-      count: "544+ projects",
-      bg: "bg-[#E8DFC8]",
-      img: "https://cdn-icons-png.flaticon.com/512/1040/1040230.png",
-    },
-    {
-      title: "Possession in '28",
-      count: "382+ projects",
-      bg: "bg-[#EADDE3]",
-      img: "https://cdn-icons-png.flaticon.com/512/1040/1040230.png",
-    },
-    {
-      title: "Possession in '29",
-      count: "233+ projects",
-      bg: "bg-[#DCEBE3]",
-      img: "https://cdn-icons-png.flaticon.com/512/1040/1040230.png",
-    },
-    {
-      title: "Possession Beyond '29",
-      count: "287+ projects",
-      bg: "bg-[#DCE3EC]",
-      img: "https://cdn-icons-png.flaticon.com/512/1040/1040230.png",
-    },
-    {
-      title: "Possession in '30",
-      count: "190+ projects",
-      bg: "bg-[#F1E4D3]",
-      img: "https://cdn-icons-png.flaticon.com/512/1040/1040230.png",
-    },
-  ],
+// 🎨 Card background colors
+const colors = [
+  "bg-[#E8DFC8]",
+  "bg-[#EADDE3]",
+  "bg-[#DCEBE3]",
+  "bg-[#DCE3EC]",
+];
 
-  ready: Array(6).fill({
-    title: "Ready Homes",
-    count: "300+ projects",
-    bg: "bg-[#E0F2FE]",
-    img: "https://cdn-icons-png.flaticon.com/512/609/609803.png",
-  }),
+// ✅ Filter projects based on tab
+const filteredProjects = computed(() => {
+  if (!projectPropertyListData.value) return [];
 
-  upcoming: Array(5).fill({
-    title: "New Launch",
-    count: "150+ projects",
-    bg: "bg-[#FCE7F3]",
-    img: "https://cdn-icons-png.flaticon.com/512/1828/1828919.png",
-  }),
-};
+  return projectPropertyListData.value.filter((project) => {
+    if (activeTab.value === "under") {
+      return project.projectStatus === "Under Construction";
+    }
+    if (activeTab.value === "ready") {
+      return project.projectStatus === "Ready to Move";
+    }
+    if (activeTab.value === "upcoming") {
+      return project.projectStatus === "New Launch";
+    }
+    return true;
+  });
+});
 
-const activeCards = computed(() => data[activeTab.value] || []);
+// ✅ Map to UI cards
+const activeCards = computed(() => {
+  return filteredProjects.value.map((project, index) => ({
+    title: project.projectName,
+    price: `₹${project.minPrice} - ₹${project.maxPrice}`,
+    img: project.propertyPictures?.[0] || "",
+    bg: colors[index % colors.length],
+  }));
+});
 </script>
 
 <template>
@@ -87,8 +81,16 @@ const activeCards = computed(() => data[activeTab.value] || []);
       </button>
     </div>
 
+    <!-- Empty State -->
+    <div
+      v-if="!activeCards.length"
+      class="text-center py-10 text-gray-500"
+    >
+      No projects found
+    </div>
+
     <!-- Swiper -->
-    <div class="mt-6">
+    <div v-else class="mt-6">
       <Swiper
         :space-between="20"
         :slides-per-view="4"
@@ -107,13 +109,17 @@ const activeCards = computed(() => data[activeTab.value] || []);
             class="rounded-2xl p-5 h-[320px] flex flex-col justify-between shadow-sm"
             :class="card.bg"
           >
+            <!-- Top Content -->
             <div>
-              <h2 class="text-lg font-semibold">{{ card.title }}</h2>
+              <h2 class="text-lg font-semibold">
+                {{ card.title }}
+              </h2>
               <p class="text-sm text-gray-600 mt-1">
-                {{ card.count }}
+                {{ card.price }}
               </p>
             </div>
 
+            <!-- Image -->
             <div class="flex justify-center">
               <img
                 :src="card.img"
