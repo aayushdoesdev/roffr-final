@@ -1,52 +1,230 @@
-<script setup></script>
+<script setup>
+import { onMounted, ref, onUnmounted } from 'vue';
+import gsap from 'gsap';
+
+const sectionRef = ref(null);
+let ctx = null;
+
+// Arc donut math
+const radius = 88;
+const circumference = 2 * Math.PI * radius;
+const totalArc = 270; // degrees
+const trackDash = (totalArc / 360) * circumference;
+const trackGap = circumference - trackDash;
+
+// Segmented orange progress (3 segments)
+const segmentLength = 50;
+const gapWidth = 10;
+
+onMounted(() => {
+  ctx = gsap.context(() => {
+    // Entrance animations
+    gsap.from('.loan-content > *', {
+      y: 40, opacity: 0, stagger: 0.15, duration: 1, ease: 'power4.out'
+    });
+    
+    gsap.from('.loan-card', {
+      x: 60, opacity: 0, duration: 1.2, delay: 0.2, ease: 'power4.out'
+    });
+
+    // Animate donut segments
+    gsap.from('.progress-segments', {
+      strokeDashoffset: trackDash,
+      duration: 2,
+      delay: 0.6,
+      ease: 'power3.out'
+    });
+
+    // Stat lines reveal
+    gsap.from('.stat-line', {
+      scaleX: 0, opacity: 0, transformOrigin: 'left', stagger: 0.2, duration: 0.8, delay: 1.2, ease: 'power3.out'
+    });
+  }, sectionRef.value);
+});
+
+onUnmounted(() => { if (ctx) ctx.kill(); });
+</script>
 
 <template>
-  <section class="max-w-7xl mx-auto mt-16 py-20">
-    <div class="bg-[#FAF8F9] px-16 py-6 pb-0 rounded-3xl flex flex-col xl:flex-row items-center">
-      <div class="w-full xl:w-1/2">
-        <h1 class="title-text">
-          Apply Home Loan<br />
-          Online at Roffr
+  <section ref="sectionRef" class="hero-wrapper">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-12 py-16 lg:py-28 flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+      
+      <!-- Left Content -->
+      <div class="loan-content w-full lg:w-1/2 flex flex-col items-start gap-8">
+        <div class="tag-label">INTELLIGENT CAPITAL</div>
+
+        <h1 class="main-title">
+          The Blueprint of<br />
+          Financial Freedom.
         </h1>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          <div class="flex items-center gap-2">
-            <i class="pi pi-check"></i>
-            <p>Loan Offers from 34+ Banks</p>
+        <p class="sub-desc">
+          Our architectural approach to lending removes the friction of
+          traditional finance, replacing it with precision-engineered
+          rates and transparent structures.
+        </p>
+
+        <div class="feature-badges flex flex-wrap gap-4">
+          <div class="badge-item">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Fixed APR 4.25%
           </div>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-check"></i>
-            <p>Highest Loan Value & Lowest ROI</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-check"></i>
-            <p>Dedicated RM for Property Search</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-check"></i>
-            <p>Fastest Loan Disbursal</p>
+          <div class="badge-item">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+               <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Instantly Approved
           </div>
         </div>
       </div>
-      <div class="w-full xl:w-1/2 flex justify-center">
-        <img
-          src="/images/LoanPage/loan-hero.webp"
-          alt=""
-          class="w-full xl:w-[60%] mx-auto"
-        />
+
+      <!-- Right Card -->
+      <div class="w-full lg:w-1/2 flex justify-center lg:justify-end">
+        <div class="loan-card">
+          
+          <!-- Donut Graphic -->
+          <div class="donut-section relative flex items-center justify-center mb-10">
+            <svg width="220" height="220" viewBox="0 0 220 220" class="donut-svg">
+              <!-- Background Gray Track -->
+              <circle
+                cx="110" cy="110" :r="radius"
+                fill="none" stroke="#f1f3f7" stroke-width="15" stroke-linecap="round"
+                :stroke-dasharray="`${trackDash} ${trackGap}`"
+                transform="rotate(135 110 110)"
+              />
+              <!-- Segmented Orange Progress -->
+              <circle
+                class="progress-segments"
+                cx="110" cy="110" :r="radius"
+                fill="none" stroke="#ff5a20" stroke-width="15" stroke-linecap="round"
+                :stroke-dasharray="`${segmentLength} ${gapWidth} ${segmentLength} ${gapWidth} ${segmentLength} ${circumference}`"
+                transform="rotate(135 110 110)"
+              />
+            </svg>
+            
+            <div class="absolute flex flex-col items-center">
+              <span class="donut-label">MONTHLY PAYMENT</span>
+              <span class="donut-value">$2,450</span>
+            </div>
+          </div>
+
+          <!-- Bottom Stats -->
+          <div class="stats-box w-full space-y-6">
+            <div class="flex justify-between items-center text-group">
+              <span class="s-label">LOAN AMOUNT</span>
+              <span class="s-value">$150,000</span>
+            </div>
+            <div class="h-px bg-[#eaecf4] w-full stat-line"></div>
+            <div class="flex justify-between items-center text-group">
+              <span class="s-label">AMORTIZATION PERIOD</span>
+              <span class="s-value">15 Years</span>
+            </div>
+            <div class="h-px bg-[#eaecf4] w-full stat-line"></div>
+          </div>
+
+        </div>
       </div>
-    </div>
 
-    <p class="uppercase text-center mt-10 opacity-30 font-semibold">Top Home Loan Bank Partners</p>
-
-    <div
-      class="flex flex-col xl:flex-row items-center justify-between mt-16 space-y-10 xl:space-y-0"
-    >
-      <img src="/svg/Loanpage/bank1.svg" alt="" />
-      <img src="/svg/Loanpage/bank2.svg" alt="" />
-      <img src="/svg/Loanpage/bank3.svg" alt="" />
-      <img src="/svg/Loanpage/bank4.svg" alt="" />
-      <img src="/svg/Loanpage/bank5.svg" alt="" />
     </div>
   </section>
 </template>
+
+<style scoped>
+.hero-wrapper {
+  background-color: #f8f9fb;
+  overflow: hidden;
+}
+
+.tag-label {
+  background: #eae5ff;
+  color: #634efc;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 0.45rem 1.1rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.main-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(2.5rem, 6vw, 4.25rem);
+  font-weight: 800;
+  color: #0c1c28;
+  line-height: 1.05;
+}
+
+.sub-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  color: #5b6771;
+  line-height: 1.75;
+  max-width: 440px;
+}
+
+.badge-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 1.5px solid #d4d8e2;
+  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0c1c28;
+}
+
+.icon {
+  width: 1rem;
+  height: 1rem;
+  color: #1a202c;
+}
+
+/* Right Card */
+.loan-card {
+  background: #ffffff;
+  border-radius: 2rem;
+  padding: 3.5rem 3rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.03), 0 15px 35px rgba(0,0,0,0.01);
+}
+
+.donut-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #8c9aab;
+  margin-bottom: 0.25rem;
+}
+
+.donut-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.65rem;
+  font-weight: 800;
+  color: #0c1c28;
+  line-height: 1;
+}
+
+/* Stats */
+.s-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #8c9aab;
+}
+
+.s-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0c1c28;
+}
+</style>
