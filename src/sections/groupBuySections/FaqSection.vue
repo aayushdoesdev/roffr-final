@@ -1,125 +1,214 @@
 <script setup>
-import { ref } from "vue";
-import AnimatedTitle from "@/components/AnimatedTitle.vue";
+import { onMounted, ref } from 'vue';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-const allFaqs = [
+gsap.registerPlugin(ScrollTrigger);
+
+const sectionRef = ref(null);
+const titleRef = ref(null);
+const listRef = ref([]);
+
+// Default first item is open
+const openIndex = ref(0);
+
+const toggleFaq = (index) => {
+  openIndex.value = openIndex.value === index ? -1 : index;
+};
+
+const faqs = [
   {
-    question: "What is Roffr?",
-    answer: "Roffr is a group buying platform that helps multiple buyers come together to purchase real estate at better prices with transparent processes.",
+    q: 'Who actually owns the property?',
+    a: 'You do. ARCHITECT facilitates the transaction and negotiation as a group, but the individual title and deed are issued in your name (or your company/trust).'
   },
   {
-    question: "How does Roffr work?",
-    answer: "Buyers with similar requirements are grouped, projects are shortlisted, and negotiations are done on behalf of the group to secure better terms from developers.",
+    q: 'What happens if someone in the group drops out?',
+    a: 'We maintain an active waitlist for every cohort. If a buyer drops out, their spot is immediately offered to the next verified investor, ensuring the group\'s purchasing power remains intact.'
   },
   {
-    question: "Why should I choose Roffr over brokers or traditional channels?",
-    answer: "You get collective negotiation power, curated projects, and a structured, tech-driven buying journey instead of fragmented broker-led discovery.",
+    q: 'Are there any upfront fees for joining?',
+    a: 'No, joining the network is completely free. We only charge a transparent success fee upon the successful negotiation and signing of your property.'
   },
   {
-    question: "Is Roffr available in all cities?",
-    answer: "The service is currently active in selected major cities and is being expanded to new locations in phases.",
-  },
-  {
-    question: "How do I contact customer support?",
-    answer: "You can reach the support team through the help centre on the website, email, or the dedicated WhatsApp/phone support number.",
-  },
-  {
-    question: "How do I join a buyer group?",
-    answer: "You simply sign up on Roffr, choose your preferred project, and join any group that matches your needs.",
-  },
-  {
-    question: "What are the benefits of joining a group?",
-    answer: "You get lower prices, better deals, priority access, and increased negotiation power as part of a group.",
-  },
-  {
-    question: "What if my group is too small or doesn't fill up?",
-    answer: "If a group doesn't reach the required size, Roffr helps merge or reassign members so you still get access to the offer.",
-  },
-  {
-    question: "Can I choose my own group members?",
-    answer: "Yes. You can join public groups or create private groups where you invite your own friends or family.",
-  },
-  {
-    question: "Will I get early access to new projects and launches?",
-    answer: "Yes, Roffr members often get early access and exclusive pre-launch offers.",
-  },
-  {
-    question: "Do I need to pay to join Roffr?",
-    answer: "You can browse and explore projects for free. Payments are only required for premium features or group confirmations.",
-  },
-  {
-    question: "How much does the subscription cost?",
-    answer: "Roffr offers simple and affordable subscription options based on the services you use.",
-  },
+    q: 'How are the developers selected?',
+    a: 'We partner exclusively with Tier-1 developers who have a proven track record of delivering premium assets. Our due diligence covers financial stability, past performance, and construction quality before any project reaches you.'
+  }
 ];
 
-const openQuestion = ref(allFaqs[0]?.question || "");
+onMounted(() => {
+  const ctx = gsap.context(() => {
+    // Title animation
+    gsap.fromTo(titleRef.value,
+      { opacity: 0, y: 24 },
+      { 
+        opacity: 1, y: 0, duration: 0.75, ease: 'power3.out',
+        scrollTrigger: { trigger: sectionRef.value, start: 'top 85%', once: true }
+      }
+    );
 
-const toggleQuestion = (q) => {
-  openQuestion.value = openQuestion.value === q ? "" : q;
-};
+    // List items stagger animation
+    gsap.fromTo(listRef.value,
+      { opacity: 0, y: 30 },
+      { 
+        opacity: 1, y: 0, duration: 0.8, stagger: 0.15, ease: 'power3.out',
+        scrollTrigger: { trigger: sectionRef.value, start: 'top 80%', once: true }
+      }
+    );
+  }, sectionRef.value);
+
+  return () => ctx.revert();
+});
 </script>
 
 <template>
-  <section class="max-w-7xl mx-auto py-10 px-4 2xl:px-0">
-    <div class="text-center mb-12">
-      <AnimatedTitle text="Frequently Asked Questions" customClass="title-text" />
-    </div>
+  <section ref="sectionRef" class="faq-section">
+    <div class="inner-container">
+      
+      <!-- Title -->
+      <h2 ref="titleRef" class="main-title">Frequently Asked Questions</h2>
 
-    <div class="space-y-3">
-      <div
-        v-for="item in allFaqs"
-        :key="item.question"
-        class="rounded-2xl border border-[#f3e6de] bg-white overflow-hidden"
-      >
-        <button
-          class="w-full flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 text-left"
-          @click="toggleQuestion(item.question)"
+      <!-- FAQ Accordion -->
+      <div class="faq-list">
+        <div 
+          v-for="(faq, index) in faqs" 
+          :key="'faq-' + index"
+          :ref="el => { if (el) listRef[index] = el }"
+          class="faq-card"
+          @click="toggleFaq(index)"
         >
-          <div class="flex items-center gap-3">
-            <span
-              class="flex h-6 w-6 items-center justify-center rounded-full border border-[#ffb29a] text-[#e35a2d] text-xs"
-            >
-              ?
-            </span>
-            <span
-              class="text-sm font-medium"
-              :class="
-                openQuestion === item.question
-                  ? 'text-[#e35a2d]'
-                  : 'text-gray-800'
-              "
-            >
-              {{ item.question }}
+          <div class="faq-header">
+            <h3 class="faq-question">{{ faq.q }}</h3>
+            <!-- Plus / Minus Icon -->
+            <span class="icon-toggle" :class="{ 'icon-open': openIndex === index }">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" class="vertical-line"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
             </span>
           </div>
-          <span
-            class="h-6 w-6 flex items-center justify-center rounded-full bg-[#fff4ee] text-[#e35a2d] text-lg"
+          
+          <div 
+            class="faq-answer-wrapper" 
+            :class="{ 'is-open': openIndex === index }"
           >
-            {{ openQuestion === item.question ? "−" : "+" }}
-          </span>
-        </button>
-
-        <transition name="fade">
-          <div
-            v-if="openQuestion === item.question"
-            class="px-8 sm:px-12 pb-4 text-xs sm:text-sm text-gray-600"
-          >
-            {{ item.answer }}
+            <p class="faq-answer">{{ faq.a }}</p>
           </div>
-        </transition>
+        </div>
       </div>
+
     </div>
   </section>
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
+/* ── Main Layout ── */
+.faq-section {
+  background-color: #F8F9FA; /* Off-white base matching screenshot */
+  padding: 8rem 1.5rem;
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
 }
-.fade-enter-from,
-.fade-leave-to {
+
+.inner-container {
+  max-width: 850px; /* Constrain width nicely for readability */
+  margin: 0 auto;
+}
+
+/* ── Typography ── */
+.main-title {
+  font-family: 'Urbanist', sans-serif;
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.02em;
+  text-align: center;
+  margin: 0 0 4rem 0;
+  will-change: transform, opacity;
+}
+
+/* ── Accordion List ── */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.faq-card {
+  background-color: #ffffff;
+  padding: 1.75rem 2rem; /* Clean padding */
+  border-radius: 4px; /* Crisp minimal corners */
+  cursor: pointer;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02); /* Very soft ambient shadow */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform, opacity;
+}
+
+.faq-card:hover {
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.04);
+}
+
+.faq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.faq-question {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+/* Toggle Icon */
+.icon-toggle {
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.icon-open {
+  transform: rotate(45deg); /* Rotates the plus cleanly into an X */
+  color: #6B7280; /* Dims slightly when open */
+}
+
+/* ── Accordion Reveal ── */
+.faq-answer-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.faq-answer-wrapper.is-open {
+  grid-template-rows: 1fr;
+}
+
+.faq-answer {
+  overflow: hidden;
+  font-size: 0.95rem;
+  color: #6B7280;
+  line-height: 1.6;
+  margin: 0;
+  padding-top: 0;
   opacity: 0;
+  transition: padding-top 0.35s ease, opacity 0.3s ease;
+}
+
+.faq-answer-wrapper.is-open .faq-answer {
+  padding-top: 1.25rem; /* Spaces text from the question once open */
+  opacity: 1;
+  transition-delay: 0.1s; /* Slight delay to let it expand before full opacity */
+}
+
+/* Responsive Overrides */
+@media (max-width: 640px) {
+  .faq-card {
+    padding: 1.5rem;
+  }
 }
 </style>

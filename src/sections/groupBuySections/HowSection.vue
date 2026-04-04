@@ -1,56 +1,151 @@
 <script setup>
-const steps = [
-  {
-    icon: '/svg/GroupBuy/1.svg',
-    title: 'Register Interest',
-    description: 'Sign up and tell us your budget, preferred location, and property type.'
-  },
-  {
-    icon: '/svg/GroupBuy/2.svg',
-    title: 'Join a Cohort',
-    description: "We'll match you with other like-minded buyers in your development."
-  },
-  {
-    icon: '/svg/GroupBuy/3.svg',
-    title: 'Negotiation',
-    description: 'We negotiate bulk pricing on behalf of the group.'
-  },
-  {
-    icon: '/svg/GroupBuy/4.svg',
-    title: 'Purchase & Save',
-    description: 'Secure your unit at the unbeatable group price.'
-  }
-]
+import { onMounted, ref } from 'vue';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const sectionRef = ref(null);
+const contentRef = ref(null);
+
+onMounted(() => {
+  const ctx = gsap.context(() => {
+    // Cascade load the contents upward
+    gsap.fromTo(contentRef.value.children,
+      { opacity: 0, y: 40 },
+      { 
+        opacity: 1, y: 0, duration: 0.8, stagger: 0.15, ease: 'power3.out',
+        scrollTrigger: { trigger: sectionRef.value, start: 'top 85%', once: true }
+      }
+    );
+  }, sectionRef.value);
+
+  return () => ctx.revert();
+});
 </script>
 
 <template>
-  <section class="max-w-7xl mx-auto flex flex-col py-20 px-4 2xl:px-0">
-    <div class="text-center mb-12">
-      <h1 class="title-text">How It Works</h1>
-      <p>Four simple steps to your new home.</p>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8 mt-28 items-stretch">
-      <div 
-        v-for="(step, index) in steps" 
-        :key="index"
-        class="flex items-center relative min-h-[160px] md:min-h-[180px] xl:min-h-[200px]"
-      >
-        <!-- Icon - positioned to the left consistently -->
-        <div class="absolute left-0 -top-6 md:-top-8 xl:-top-10 min-w-[150px] flex-shrink-0 z-10">
-          <img :src="step.icon" :alt="step.title" class="w-full h-full object-contain" />
-        </div>
-        
-        <!-- Content with padding to accommodate icon -->
-        <div class="relative z-10 pl-20 md:pl-16 xl:pl-14 font-outfit w-full">
-          <p class="font-semibold text-[20px] md:text-lg xl:text-base leading-tight mb-2">
-            {{ step.title }}
-          </p>
-          <p class="text-[14px] md:text-sm text-slate-600 leading-relaxed">
-            {{ step.description }}
-          </p>
-        </div>
+  <section ref="sectionRef" class="cta-section">
+    <div ref="contentRef" class="cta-content">
+      <h2 class="cta-title">
+        Ready to Unlock Wholesale<br class="hidden sm:block" />
+        Real Estate Prices?
+      </h2>
+      
+      <p class="cta-subtitle">
+        Join 400+ investors who are already buying smarter. Your cohort is waiting.
+      </p>
+      
+      <div class="cta-actions">
+        <button class="btn btn-primary">Get Started Today</button>
+        <button class="btn btn-secondary">Schedule a Consultation</button>
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+/* ── Main Layout ── */
+.cta-section {
+  background-color: #F8F9FA; /* Off-white base matching screenshot */
+  padding: 10rem 1.5rem; /* Generous padding for breathing room */
+  font-family: 'Outfit', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.cta-content {
+  max-width: 800px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Typography ── */
+.cta-title {
+  font-family: 'Urbanist', sans-serif;
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 800; /* Extra bold */
+  color: #111827; /* Dark near-black */
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 1.5rem 0;
+  will-change: transform, opacity;
+}
+
+.cta-subtitle {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(1rem, 2vw, 1.1rem);
+  color: #6B7280; /* Soft gray */
+  margin: 0 0 3.5rem 0;
+  font-weight: 300;
+  will-change: transform, opacity;
+}
+
+/* ── Actions / Buttons ── */
+.cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  will-change: transform, opacity;
+}
+
+.btn {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 1.1rem 2rem;
+  border-radius: 4px; /* Slight rounded corners */
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  min-width: 200px;
+}
+
+.btn-primary {
+  background-color: #17181C; /* Sleek dark graphite */
+  color: #ffffff;
+  border: 1px solid #17181C;
+  /* Notice the faint purple glow underneath the black button from the design */
+  box-shadow: 0 15px 35px rgba(88, 71, 255, 0.15);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(88, 71, 255, 0.2);
+  background-color: #0F1013;
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  color: #111827;
+  border: 1px solid #E5E7EB; /* Subtle light gray border */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  border-color: #D1D5DB;
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive Overrides */
+@media (max-width: 640px) {
+  .cta-section {
+    padding: 6rem 1.5rem;
+  }
+  
+  .cta-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn {
+    width: 100%;
+    max-width: 320px; /* Constrain button width on mobile */
+  }
+}
+</style>

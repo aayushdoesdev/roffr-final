@@ -1,6 +1,6 @@
 <script setup>
 import HeroSection from '@/sections/groupBuySections/HeroSection.vue';
-import WhatCommunitySection from '@/sections/groupBuySections/WhatCommunitySection.vue';
+import CollectiveSection from '@/sections/groupBuySections/CollectiveSection.vue';
 import WhyGroupSection from '@/sections/groupBuySections/WhyGroupSection.vue';
 import AdvantageSection from '@/sections/groupBuySections/AdvantageSection.vue';
 import HowSection from '@/sections/groupBuySections/HowSection.vue';
@@ -10,7 +10,7 @@ import FaqSection from '@/sections/groupBuySections/FaqSection.vue';
 <template>
     <main class="">
         <HeroSection/>
-        <WhatCommunitySection/>
+        <CollectiveSection/>
         <WhyGroupSection/>
         <AdvantageSection/>
         <HowSection/>
