@@ -9,7 +9,6 @@ import CaseStudySection from '@/sections/corporateSections/CaseStudySection.vue'
     <main class="">
         <HeroSection/>
         <HighValueSection/>
-        <!-- <BookingSection/> -->
         <CaseStudySection/>
     </main>
 </template>
