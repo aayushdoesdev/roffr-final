@@ -3,8 +3,9 @@ import GsapFade from '@/components/GsapFade.vue'
 
 import HeroSection from '@/sections/channelPartnerSection2/HeroSection.vue';
 import BestCrmSection from '@/sections/channelPartnerSection2/BestCrmSection.vue';
-import UnbeatableDealsSection from '@/sections/homeSections/UnbeatableDealsSection.vue';
-import WorkSection from '@/sections/homeSections/WorkSection.vue';
+import ProcisionSection from '@/sections/channelPartnerSections/ProcisionSection.vue';
+import BuldingSection from '@/sections/channelPartnerSections/buldingSection.vue';
+import OfferingSection from '@/sections/channelPartnerSections/OfferingSection.vue';
 </script>
 
 <template>
@@ -18,11 +19,15 @@ import WorkSection from '@/sections/homeSections/WorkSection.vue';
     </GsapFade>
 
     <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
-      <UnbeatableDealsSection />
+      <ProcisionSection />
     </GsapFade>
 
     <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
-      <WorkSection />
+      <BuldingSection />
+    </GsapFade>
+
+    <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
+      <OfferingSection />
     </GsapFade>
   </main>
 </template>
