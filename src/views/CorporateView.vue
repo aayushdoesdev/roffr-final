@@ -1,15 +1,14 @@
 <script setup>
 import HeroSection from '@/sections/corporateSections/HeroSection.vue';
-import HighValueSection from '@/sections/corporateSections/HighValueSection.vue';
-import BookingSection from '@/sections/corporateSections/BookingSection.vue';
-import CaseStudySection from '@/sections/corporateSections/CaseStudySection.vue';
+import StrategicSection from '@/sections/corporateSections/StrategicSection.vue';
+import TransparentSection from '@/sections/corporateSections/TransparentSection.vue';
 </script>
 
 <template>
     <main class="">
         <HeroSection/>
-        <HighValueSection/>
-        <CaseStudySection/>
+        <StrategicSection/>
+        <TransparentSection/>
     </main>
 </template>
 

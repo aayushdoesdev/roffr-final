@@ -4,7 +4,7 @@ import GsapFade from '@/components/GsapFade.vue'
 import HeroSection from '@/sections/channelPartnerSection2/HeroSection.vue';
 import BestCrmSection from '@/sections/channelPartnerSection2/BestCrmSection.vue';
 import ProcisionSection from '@/sections/channelPartnerSections/ProcisionSection.vue';
-import BuldingSection from '@/sections/channelPartnerSections/buldingSection.vue';
+import BuildingSection from '@/sections/channelPartnerSections/buildingSection.vue';
 import OfferingSection from '@/sections/channelPartnerSections/OfferingSection.vue';
 </script>
 
@@ -23,7 +23,7 @@ import OfferingSection from '@/sections/channelPartnerSections/OfferingSection.v
     </GsapFade>
 
     <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
-      <BuldingSection />
+      <BuildingSection />
     </GsapFade>
 
     <GsapFade direction="bottom" :duration="0.7" :triggerOffset="120">
