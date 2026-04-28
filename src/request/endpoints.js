@@ -33,6 +33,10 @@ const endpoints = {
 
   // Social feed (Twitter-like)
   social: "/social",
+
+  // S3 upload (multipart)
+  s3UploadOne: "/s3/upload",
+  s3UploadMany: "/s3/upload/multiple",
 };
 
 export default endpoints;

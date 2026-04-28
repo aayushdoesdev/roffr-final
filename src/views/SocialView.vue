@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSocialStore } from "@/stores/socialStore";
 import { useAuthStore } from "@/stores/authStore";
+import ImageUploader from "@/components/ImageUploader.vue";
 
 const router = useRouter();
 
@@ -36,7 +37,7 @@ const isLoggedIn = computed(() => authStore.isAuthenticated && !!me.value.id);
 
 // Composer
 const newPost = ref("");
-const newPostImages = ref(""); // comma/newline separated URLs
+const newPostImages = ref([]); // uploaded S3 URLs
 const posting = ref(false);
 const composerError = ref("");
 
@@ -55,17 +56,14 @@ const submitPost = async () => {
   try {
     await socialStore.createPost({
       content: newPost.value.trim(),
-      images: newPostImages.value
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter(Boolean),
+      images: newPostImages.value || [],
       authorId: me.value.id,
       authorType: me.value.type,
       authorName: me.value.name,
       authorAvatar: me.value.avatar,
     });
     newPost.value = "";
-    newPostImages.value = "";
+    newPostImages.value = [];
   } catch (err) {
     composerError.value =
       err?.response?.data?.message || err?.message || "Failed to post.";
@@ -246,12 +244,13 @@ onMounted(async () => {
               placeholder="Share an update, a question, or a listing…"
               class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-orange-400 resize-none"
             ></textarea>
-            <input
-              v-model="newPostImages"
-              type="text"
-              placeholder="Optional image URLs (comma or newline separated)"
-              class="mt-2 w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-orange-400"
-            />
+            <div class="mt-2">
+              <ImageUploader
+                v-model="newPostImages"
+                folder="social"
+                :max="4"
+              />
+            </div>
             <p v-if="composerError" class="text-red-500 text-xs mt-2">
               {{ composerError }}
             </p>
