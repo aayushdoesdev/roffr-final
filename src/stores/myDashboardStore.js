@@ -3,6 +3,37 @@ import { ref, computed } from "vue";
 import { makeRequest } from "@/request/request";
 import endpoints from "@/request/endpoints";
 
+// Parse NestJS ValidationPipe array messages into a per-field map.
+// "title must be a string" → { title: "title must be a string" }
+const parseValidationMessages = (raw) => {
+  const messages = Array.isArray(raw)
+    ? raw.filter((m) => typeof m === "string")
+    : typeof raw === "string"
+      ? [raw]
+      : [];
+  const fields = {};
+  for (const msg of messages) {
+    const head = (msg.split(" ")[0] || "").trim();
+    if (/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(head) && !fields[head]) {
+      fields[head] = msg;
+    }
+  }
+  const top = messages.length === 1 ? messages[0] : messages[0] || "";
+  return { message: top || "", fieldErrors: fields };
+};
+
+const extractError = (err, fallback) => {
+  const raw = err?.response?.data?.message;
+  if (Array.isArray(raw) || typeof raw === "string") {
+    const parsed = parseValidationMessages(raw);
+    return {
+      message: parsed.message || fallback,
+      fieldErrors: parsed.fieldErrors,
+    };
+  }
+  return { message: fallback, fieldErrors: {} };
+};
+
 // Bundles the marketplace customer's own listings (properties, projects)
 // and their booked site visits + dashboard stats.
 export const useMyDashboardStore = defineStore("myDashboard", () => {
@@ -11,6 +42,9 @@ export const useMyDashboardStore = defineStore("myDashboard", () => {
   const mySiteVisits = ref([]);
   const loading = ref(false);
   const error = ref(null);
+  // Per-field validation errors for the currently-running create/update.
+  const propertyFieldErrors = ref({});
+  const projectFieldErrors = ref({});
 
   const stats = computed(() => ({
     properties: myProperties.value.length,
@@ -40,16 +74,28 @@ export const useMyDashboardStore = defineStore("myDashboard", () => {
 
   const createMyProperty = async (customerId, payload) => {
     if (!customerId) throw new Error("customerId required");
-    const res = await makeRequest(
-      `${endpoints.customerProperties}/${customerId}`,
-      "POST",
-      payload,
-      {},
-      {},
-      0,
-    );
-    await fetchMyProperties(customerId);
-    return res;
+    error.value = null;
+    propertyFieldErrors.value = {};
+    try {
+      const res = await makeRequest(
+        `${endpoints.customerProperties}/${customerId}`,
+        "POST",
+        payload,
+        {},
+        {},
+        0,
+      );
+      await fetchMyProperties(customerId);
+      return res;
+    } catch (err) {
+      const { message, fieldErrors: fields } = extractError(
+        err,
+        "Failed to list property",
+      );
+      error.value = message;
+      propertyFieldErrors.value = fields;
+      throw err;
+    }
   };
 
   const deleteMyProperty = async (customerId, propertyId) => {
@@ -88,16 +134,28 @@ export const useMyDashboardStore = defineStore("myDashboard", () => {
 
   const createMyProject = async (customerId, payload) => {
     if (!customerId) throw new Error("customerId required");
-    const res = await makeRequest(
-      `${endpoints.customerProjects}/${customerId}`,
-      "POST",
-      payload,
-      {},
-      {},
-      0,
-    );
-    await fetchMyProjects(customerId);
-    return res;
+    error.value = null;
+    projectFieldErrors.value = {};
+    try {
+      const res = await makeRequest(
+        `${endpoints.customerProjects}/${customerId}`,
+        "POST",
+        payload,
+        {},
+        {},
+        0,
+      );
+      await fetchMyProjects(customerId);
+      return res;
+    } catch (err) {
+      const { message, fieldErrors: fields } = extractError(
+        err,
+        "Failed to list project",
+      );
+      error.value = message;
+      projectFieldErrors.value = fields;
+      throw err;
+    }
   };
 
   const deleteMyProject = async (customerId, projectId) => {
@@ -174,6 +232,14 @@ export const useMyDashboardStore = defineStore("myDashboard", () => {
     myProjects.value = [];
     mySiteVisits.value = [];
     error.value = null;
+    propertyFieldErrors.value = {};
+    projectFieldErrors.value = {};
+  };
+
+  const clearFormErrors = () => {
+    error.value = null;
+    propertyFieldErrors.value = {};
+    projectFieldErrors.value = {};
   };
 
   return {
@@ -183,6 +249,8 @@ export const useMyDashboardStore = defineStore("myDashboard", () => {
     loading,
     error,
     stats,
+    propertyFieldErrors,
+    projectFieldErrors,
 
     fetchMyProperties,
     createMyProperty,
@@ -197,5 +265,6 @@ export const useMyDashboardStore = defineStore("myDashboard", () => {
 
     loadAll,
     reset,
+    clearFormErrors,
   };
 });

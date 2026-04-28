@@ -21,7 +21,13 @@ const {
   mySiteVisits,
   loading: dashboardLoading,
   stats: liveStats,
+  propertyFieldErrors,
+  projectFieldErrors,
 } = storeToRefs(dashboardStore);
+
+// Inline-error helpers — return the message for a given dot-path or "".
+const projectFieldErr = (key) => projectFieldErrors.value?.[key] || "";
+const listingFieldErr = (key) => propertyFieldErrors.value?.[key] || "";
 
 const activeTab = ref("Dashboard");
 
@@ -150,17 +156,20 @@ const saveProfile = () => {
 };
 
 const addProject = async () => {
+  dashboardStore.clearFormErrors();
+  formError.value = "";
+
   if (!customerId.value) {
     formError.value = "Please log in again.";
     return;
   }
   if (!projectForm.value.projectName.trim()) {
     formError.value = "Project name is required.";
+    projectFieldErrors.value = { projectName: "Project name is required" };
     return;
   }
 
   submitting.value = true;
-  formError.value = "";
   try {
     await dashboardStore.createMyProject(customerId.value, {
       projectName: projectForm.value.projectName.trim(),
@@ -183,25 +192,30 @@ const addProject = async () => {
     };
     alert("Project listed successfully");
   } catch (err) {
-    formError.value =
-      err?.response?.data?.message || "Failed to list project.";
+    const raw = err?.response?.data?.message;
+    formError.value = Array.isArray(raw)
+      ? `${raw.length} field${raw.length === 1 ? "" : "s"} need attention`
+      : raw || "Failed to list project.";
   } finally {
     submitting.value = false;
   }
 };
 
 const addListing = async () => {
+  dashboardStore.clearFormErrors();
+  formError.value = "";
+
   if (!customerId.value) {
     formError.value = "Please log in again.";
     return;
   }
   if (!listingForm.value.title.trim()) {
     formError.value = "Title is required.";
+    propertyFieldErrors.value = { title: "Title is required" };
     return;
   }
 
   submitting.value = true;
-  formError.value = "";
   try {
     await dashboardStore.createMyProperty(customerId.value, {
       title: listingForm.value.title.trim(),
@@ -234,8 +248,10 @@ const addListing = async () => {
     };
     alert("Property listed successfully");
   } catch (err) {
-    formError.value =
-      err?.response?.data?.message || "Failed to list property.";
+    const raw = err?.response?.data?.message;
+    formError.value = Array.isArray(raw)
+      ? `${raw.length} field${raw.length === 1 ? "" : "s"} need attention`
+      : raw || "Failed to list property.";
   } finally {
     submitting.value = false;
   }
@@ -748,6 +764,22 @@ const submitFeedback = () => {
                     </button>
                   </div>
 
+                  <!-- Validation summary -->
+                  <div
+                    v-if="formError || Object.keys(projectFieldErrors).length"
+                    class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 mb-6 text-sm text-red-700"
+                  >
+                    <p class="font-semibold mb-1">
+                      {{ formError || "Please review the highlighted fields." }}
+                    </p>
+                    <ul
+                      v-if="Object.keys(projectFieldErrors).length"
+                      class="list-disc pl-5 space-y-0.5"
+                    >
+                      <li v-for="(msg, key) in projectFieldErrors" :key="key">{{ msg }}</li>
+                    </ul>
+                  </div>
+
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div class="space-y-2">
                       <label class="text-gray-400 text-sm font-medium"
@@ -756,9 +788,17 @@ const submitFeedback = () => {
                       <input
                         v-model="projectForm.projectName"
                         type="text"
-                        class="w-full bg-transparent border-b border-gray-200 py-2 text-gray-900 focus:outline-none focus:border-[#FF5722] transition-colors"
+                        class="w-full bg-transparent border-b py-2 text-gray-900 focus:outline-none transition-colors"
+                        :class="
+                          projectFieldErr('projectName')
+                            ? 'border-red-400 focus:border-red-500'
+                            : 'border-gray-200 focus:border-[#FF5722]'
+                        "
                         placeholder="Enter project name"
                       />
+                      <p v-if="projectFieldErr('projectName')" class="text-xs text-red-500">
+                        {{ projectFieldErr('projectName') }}
+                      </p>
                     </div>
 
                     <div class="space-y-2">
@@ -1074,10 +1114,39 @@ const submitFeedback = () => {
                     </button>
                   </div>
 
+                  <!-- Validation summary -->
+                  <div
+                    v-if="formError || Object.keys(propertyFieldErrors).length"
+                    class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 mb-6 text-sm text-red-700"
+                  >
+                    <p class="font-semibold mb-1">
+                      {{ formError || "Please review the highlighted fields." }}
+                    </p>
+                    <ul
+                      v-if="Object.keys(propertyFieldErrors).length"
+                      class="list-disc pl-5 space-y-0.5"
+                    >
+                      <li v-for="(msg, key) in propertyFieldErrors" :key="key">{{ msg }}</li>
+                    </ul>
+                  </div>
+
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div class="space-y-2">
                       <label class="text-gray-400 text-sm font-medium">Title<span class="text-red-500">*</span></label>
-                      <input v-model="listingForm.title" type="text" class="w-full bg-transparent border-b border-gray-200 py-2" placeholder="e.g. Sky Towers Unit 12B" />
+                      <input
+                        v-model="listingForm.title"
+                        type="text"
+                        class="w-full bg-transparent border-b py-2"
+                        :class="
+                          listingFieldErr('title')
+                            ? 'border-red-400'
+                            : 'border-gray-200'
+                        "
+                        placeholder="e.g. Sky Towers Unit 12B"
+                      />
+                      <p v-if="listingFieldErr('title')" class="text-xs text-red-500">
+                        {{ listingFieldErr('title') }}
+                      </p>
                     </div>
                     <div class="space-y-2">
                       <label class="text-gray-400 text-sm font-medium">BHK</label>
