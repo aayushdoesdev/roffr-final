@@ -1,603 +1,455 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from "vue";
-import { useProjectStore } from "@/stores/projectStore";
-import { storeToRefs } from "pinia";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import { storeToRefs } from "pinia";
 import { useSearchStore } from "@/stores/SearchStore";
+import { useProjectStore } from "@/stores/projectStore";
 import { debounce } from "@/utils/debounce";
-import { useShare } from "@/utils/useShare";
-import ShareModal from "@/components/ShareModal.vue";
-import PropertyMap from "@/components/PropertyMap.vue";
 
 const router = useRouter();
-
-const {
-  showShareModal,
-  shareUrl,
-  shareTitle,
-  openShareModal,
-  closeShareModal,
-} = useShare();
-
 const route = useRoute();
 
-const projectStore = useProjectStore();
-const {
-  projectPropertyListData,
-  uniqueCitiesData,
-  pageNumber,
-  totalpages,
-  pageSize,
-} = storeToRefs(projectStore);
-
 const searchStore = useSearchStore();
-const { searchSuggestionData, term } = storeToRefs(searchStore);
+const { items, total, loading, error, fallback, fallbackReason, page, limit } =
+  storeToRefs(searchStore);
 
-// UI state
-const searchInput = ref("");
-const suggestionsVisible = ref(false);
-const containerRef = ref(null);
+const projectStore = useProjectStore();
+const { uniqueCitiesData } = storeToRefs(projectStore);
 
-const selectedCity = ref("");
-const cityDropdownOpen = ref(false);
-const showBestDealsOnly = ref(false);
-const selectedType = ref("project");
+const localTerm = ref(String(route.query.q || ""));
+const localCity = ref(String(route.query.city || ""));
 
-// status filter
-const selectedStatuses = ref([]);
-
-// New Filters
-const filterFreeCancellation = ref(false);
-const filterInstantBook = ref(false);
-const priceDropdownOpen = ref(false);
-const selectedPriceRange = ref(null);
-
-const priceRanges = [
-  { label: "Under ₹50L", min: 0, max: 5000000 },
-  { label: "₹50L - ₹1Cr", min: 5000000, max: 10000000 },
-  { label: "₹1Cr - ₹3Cr", min: 10000000, max: 30000000 },
-  { label: "Above ₹3Cr", min: 30000000, max: Infinity },
+const PRICE_RANGES = [
+  { key: "any", label: "Any price", min: null, max: null },
+  { key: "u50", label: "Under ₹50L", min: 0, max: 5_000_000 },
+  { key: "50to100", label: "₹50L – ₹1Cr", min: 5_000_000, max: 10_000_000 },
+  { key: "100to300", label: "₹1Cr – ₹3Cr", min: 10_000_000, max: 30_000_000 },
+  { key: "above300", label: "Above ₹3Cr", min: 30_000_000, max: null },
 ];
+const STATUS_OPTIONS = ["Under Construction", "Ready to Move", "New Launch"];
 
-const togglePriceRange = (range) => {
-  if (selectedPriceRange.value?.label === range.label) {
-    selectedPriceRange.value = null;
-  } else {
-    selectedPriceRange.value = range;
-  }
-  priceDropdownOpen.value = false;
-};
+const localPriceKey = ref(String(route.query.priceKey || "any"));
+const localStatus = ref(
+  STATUS_OPTIONS.includes(String(route.query.projectStatus))
+    ? String(route.query.projectStatus)
+    : "",
+);
+const localSort = ref(String(route.query.sortBy || "newest"));
 
-const imageErrors = ref({});
-const handleImageError = (key) => {
-  imageErrors.value[key] = true;
-};
+const showFilters = ref(false);
 
-const suggestionsList = computed(() => {
-  if (Array.isArray(searchSuggestionData.value))
-    return searchSuggestionData.value;
-  return searchSuggestionData.value?.data || [];
+const resolvedPrice = computed(() => {
+  const r = PRICE_RANGES.find((p) => p.key === localPriceKey.value);
+  return r ? { min: r.min, max: r.max } : { min: null, max: null };
 });
 
-const performSearch = async () => {
-  await projectStore.getProjectList(
-    "project",
-    searchInput.value,
-    selectedCity.value,
-  );
-};
-
-onMounted(async () => {
-  if (route.query.city) {
-    selectedCity.value = route.query.city;
-  }
-
-  if (route.query.q || route.query.city) {
-    if (route.query.q) searchInput.value = route.query.q;
-    await performSearch();
-  } else {
-    await projectStore.getProjectList();
-  }
-  await projectStore.getProjectCities();
+const activeFilterCount = computed(() => {
+  let n = 0;
+  if (localPriceKey.value !== "any") n++;
+  if (localStatus.value) n++;
+  if (localSort.value !== "newest") n++;
+  return n;
 });
 
-const formatINR = (num) => `₹ ${Number(num || 0).toLocaleString("en-IN")}`;
-
-const redirect = (id) => {
-    router.push(`/project-details/${id}`);
-};
-
-// suggestions
-const updateTermDebounced = debounce((value) => {
-  const v = value.trim();
-  if (!v) {
-    suggestionsVisible.value = false;
-    return;
-  }
-  term.value = v;
-  searchStore.getSearchSuggestion();
-}, 300);
-
-watch(searchInput, (newVal) => {
-  updateTermDebounced(newVal);
-  suggestionsVisible.value = newVal.trim().length > 0;
-});
-
-const suggestionRedirect = (suggestion) => {
-  if (!suggestion || !suggestion._id) return;
-  const type = (suggestion.itsTypeIs || "").toUpperCase();
-  if (type === "PROJECT") {
-    router.push(`/project-details/${suggestion._id}`);
-  } else if (type === "PROPERTY") {
-    router.push(`/property-details/${suggestion._id}`);
-  } else {
-    router.push(`/project-details/${suggestion._id}`);
-  }
-};
-
-const onSuggestionClick = (s) => {
-  router.push(`/project-details/${s}`);
-  suggestionsVisible.value = false;
-};
-
-const onSearchButtonClicked = () => {
-  suggestionsVisible.value = false;
-  performSearch();
-};
-
-// city filter (server request)
-async function fetchByCity(city) {
-  await projectStore.getProjectPropertyList(
-    "project",
-    searchInput.value,
-    city || "",
-  );
-}
-
-function onCitySelect(city) {
-  selectedCity.value = city;
-  cityDropdownOpen.value = false;
-  fetchByCity(city);
-}
-
-// close dropdowns on outside click
-const handleClickOutside = (e) => {
-  if (containerRef.value && !containerRef.value.contains(e.target)) {
-    suggestionsVisible.value = false;
-    cityDropdownOpen.value = false;
-  }
-};
-
-onMounted(() => document.addEventListener("click", handleClickOutside));
-onBeforeUnmount(() =>
-  document.removeEventListener("click", handleClickOutside),
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil((total.value || 0) / (limit.value || 12))),
 );
 
-// helpers
-const normalize = (str = "") => str.toString().toLowerCase().trim();
+const fallbackMessage = computed(() => {
+  if (!fallback.value) return "";
+  if (fallbackReason.value === "nearby-in-city") {
+    const c = localCity.value || "this area";
+    return `No exact match. Showing nearby projects in ${c}.`;
+  }
+  return "No exact match. Showing recent projects you might like.";
+});
 
-const isBestDeal = (project) => {
-  if (project.bestDeal || project.negotiable) return true;
-  const tags = project.tags || [];
-  return tags.some((t) => {
-    const txt = normalize(t.text);
-    return (
-      txt.includes("best deal") ||
-      txt.includes("negotiable") ||
-      txt.includes("offer") ||
-      txt.includes("exclusive")
-    );
+const formatINR = (n) => {
+  const num = Number(n || 0);
+  if (!num) return "Price on request";
+  if (num >= 10000000) return `₹ ${(num / 10000000).toFixed(2)} Cr`;
+  if (num >= 100000) return `₹ ${(num / 100000).toFixed(1)} L`;
+  return `₹ ${num.toLocaleString("en-IN")}`;
+};
+
+const goToProject = (item) => {
+  if (!item?.id) return;
+  router.push(`/project-details/${item.id}`);
+};
+
+const syncUrl = () => {
+  const q = {};
+  if (localTerm.value?.trim()) q.q = localTerm.value.trim();
+  if (localCity.value) q.city = localCity.value;
+  if (localPriceKey.value && localPriceKey.value !== "any") q.priceKey = localPriceKey.value;
+  if (localStatus.value) q.projectStatus = localStatus.value;
+  if (localSort.value && localSort.value !== "newest") q.sortBy = localSort.value;
+  if (page.value > 1) q.page = page.value;
+  router.replace({ path: "/project", query: q });
+};
+
+const runFromState = async () => {
+  await searchStore.runSearch({
+    type: "project",
+    term: localTerm.value,
+    city: localCity.value,
+    priceMin: resolvedPrice.value.min,
+    priceMax: resolvedPrice.value.max,
+    projectStatus: localStatus.value,
+    sortBy: localSort.value,
+    page: page.value,
+    limit: limit.value || 12,
   });
 };
 
-const matchesStatus = (project) => {
-  if (!selectedStatuses.value.length) return true;
-  const status = normalize(project.projectStatus || "");
-  return selectedStatuses.value.some((s) => status.includes(normalize(s)));
+const onSubmit = async () => {
+  page.value = 1;
+  syncUrl();
+  await runFromState();
 };
 
-// final list
-const filteredProjects = computed(() => {
-  const q = normalize(searchInput.value);
-  let list = projectPropertyListData.value || [];
+const liveSearch = debounce(async () => {
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+}, 400);
+watch(localTerm, () => liveSearch());
 
-  // text search
-  if (q) {
-    list = list.filter((p) => {
-      const name = normalize(p.projectName || p.title);
-      const loc = normalize(p.location);
-      const city = normalize(p.city);
-      const region = normalize(p.region);
-      const builder = normalize(p.builder?.name);
-      const priceStr = normalize(
-        `${p.priceMin || ""} ${p.priceMax || ""} ${p.price || ""}`,
-      );
-      const amenities = (p.amenities || [])
-        .map((a) => normalize(a.text))
-        .join(" ");
-      const crmName = normalize(p.crmDetails?.crmName);
+const setCity = async (c) => {
+  localCity.value = c;
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-      return (
-        name.includes(q) ||
-        loc.includes(q) ||
-        city.includes(q) ||
-        region.includes(q) ||
-        builder.includes(q) ||
-        priceStr.includes(q) ||
-        amenities.includes(q) ||
-        crmName.includes(q)
-      );
-    });
-  }
+const setStatus = async (s) => {
+  localStatus.value = localStatus.value === s ? "" : s;
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-  // Price Filter
-  if (selectedPriceRange.value) {
-    list = list.filter((p) => {
-      const price = p.priceMin || p.price || 0;
-      return (
-        price >= selectedPriceRange.value.min &&
-        price <= selectedPriceRange.value.max
-      );
-    });
-  }
+const applyFilters = async () => {
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-  // Free Cancellation
-  if (filterFreeCancellation.value) {
-    list = list.filter(
-      (p) =>
-        p.freeCancellation ||
-        (p.tags &&
-          p.tags.some((t) =>
-            t.text.toLowerCase().includes("free cancellation"),
-          )),
-    );
-  }
+const resetFilters = async () => {
+  localPriceKey.value = "any";
+  localStatus.value = "";
+  localSort.value = "newest";
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-  // Instant Book
-  if (filterInstantBook.value) {
-    list = list.filter(
-      (p) =>
-        p.instantBook ||
-        (p.tags &&
-          p.tags.some((t) => t.text.toLowerCase().includes("instant book"))),
-    );
-  }
+const goToPage = async (p) => {
+  if (p < 1 || p > totalPages.value || p === page.value) return;
+  page.value = p;
+  syncUrl();
+  await runFromState();
+  if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
-  // best-deal / negotiable
-  if (showBestDealsOnly.value) {
-    list = list.filter((p) => isBestDeal(p));
-  }
+watch(
+  () => route.fullPath,
+  () => {
+    if (route.path !== "/project") return;
+    localTerm.value = String(route.query.q || "");
+    localCity.value = String(route.query.city || "");
+    localPriceKey.value = String(route.query.priceKey || "any");
+    localStatus.value = STATUS_OPTIONS.includes(String(route.query.projectStatus))
+      ? String(route.query.projectStatus)
+      : "";
+    localSort.value = String(route.query.sortBy || "newest");
+    page.value = parseInt(String(route.query.page || "1"), 10) || 1;
+    runFromState();
+  },
+);
 
-  // status
-  list = list.filter((p) => matchesStatus(p));
-
-  return list;
+onMounted(async () => {
+  page.value = parseInt(String(route.query.page || "1"), 10) || 1;
+  await Promise.all([projectStore.getProjectCities(), runFromState()]);
 });
-
-const locationPills = computed(() => {
-  if (!projectPropertyListData.value) return [];
-  const regions = projectPropertyListData.value
-    .map((p) => p.region)
-    .filter((r) => r && r.trim().length > 0);
-  return [...new Set(regions)].slice(0, 5);
-});
-
-const selectLocation = (loc) => {
-  searchInput.value = loc;
-};
-
-const fetchProjects = async () => {
-  await projectStore.getProjectPropertyList(
-    selectedType.value,
-    "",
-    selectedCity.value || "",
-  );
-};
-
-watch([pageNumber, pageSize, selectedType], fetchProjects);
-
-const canPrev = computed(() => pageNumber.value > 1);
-const canNext = computed(() => pageNumber.value < totalpages.value);
-
-const prevPage = () => {
-  if (canPrev.value) pageNumber.value -= 1;
-};
-
-const nextPage = () => {
-  if (canNext.value) pageNumber.value += 1;
-};
-
-// Map Sync
-const mapRef = ref(null);
-const onCardHover = (project) => {
-  if (mapRef.value) {
-    mapRef.value.flyToProject(project);
-  }
-};
 </script>
 
 <template>
-  <section class="max-w-7xl mx-auto px-4 2xl:px-0 mt-20 pb-10">
-    <!-- {{ projectPropertyListData }} -->
-    <div class="flex flex-col xl:flex-row items-center justify-between">
-      <h1 class="title-text">Select to explore</h1>
-      <div class="flex items-center justify-center xl:justify-start gap-3 flex-wrap mt-4 xl:mt-0">
-        <!-- Free Cancellation -->
-        <button
-          @click="filterFreeCancellation = !filterFreeCancellation"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterFreeCancellation
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          Negotiable
-        </button>
+  <main class="bg-gray-50 min-h-screen">
+    <!-- Search bar -->
+    <section class="bg-white border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 pt-24 pb-6">
+        <h1 class="text-3xl font-marcellus text-gray-900">Projects</h1>
+        <p class="text-sm text-gray-500 mt-1 mb-5">
+          Discover developer-led projects across cities — from new launches to ready-to-move.
+        </p>
 
-        <!-- Price Dropdown -->
-        <div class="relative">
-          <button
-            @click.stop="priceDropdownOpen = !priceDropdownOpen"
-            class="px-4 py-2 rounded-full border text-sm font-medium transition-all flex items-center gap-2"
-            :class="
-              selectedPriceRange
-                ? 'bg-orange-50 border-orange-500 text-orange-600'
-                : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-            "
+        <div class="flex flex-col md:flex-row md:items-center gap-3">
+          <div class="flex-1 flex items-center gap-2 border border-gray-300 rounded-full px-4 py-2 bg-white">
+            <i class="pi pi-search text-gray-400"></i>
+            <input
+              v-model="localTerm"
+              @keyup.enter="onSubmit"
+              type="text"
+              placeholder="Search project name, builder, locality…"
+              class="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400"
+            />
+            <button
+              v-if="localTerm"
+              @click="localTerm = ''"
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <i class="pi pi-times-circle"></i>
+            </button>
+          </div>
+
+          <select
+            v-model="localCity"
+            @change="setCity(localCity)"
+            class="border border-gray-300 rounded-full px-4 py-2 text-sm text-gray-700 bg-white"
           >
-            {{ selectedPriceRange ? selectedPriceRange.label : "Price" }}
-            <i class="pi pi-angle-down text-xs"></i>
+            <option value="">All cities</option>
+            <option v-for="c in uniqueCitiesData" :key="c" :value="c">{{ c }}</option>
+          </select>
+
+          <button
+            @click="showFilters = !showFilters"
+            class="border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:border-orange-400 transition"
+            :class="showFilters ? 'bg-gray-900 text-white border-gray-900' : 'bg-white'"
+          >
+            <i class="pi pi-sliders-h text-xs"></i> Filters
+            <span
+              v-if="activeFilterCount > 0"
+              class="bg-orange-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+            >
+              {{ activeFilterCount }}
+            </span>
           </button>
 
-          <div
-            v-if="priceDropdownOpen"
-            class="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-30 overflow-hidden"
+          <button
+            @click="onSubmit"
+            class="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-2 rounded-full text-sm font-semibold shadow"
           >
-            <button
-              v-for="range in priceRanges"
-              :key="range.label"
-              @click="togglePriceRange(range)"
-              class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
-              :class="
-                selectedPriceRange?.label === range.label
-                  ? 'text-orange-600 font-medium bg-orange-50'
-                  : 'text-gray-700'
-              "
+            Search
+          </button>
+        </div>
+
+        <!-- Status quick chips -->
+        <div class="mt-4 flex items-center gap-2 flex-wrap">
+          <button
+            v-for="s in STATUS_OPTIONS"
+            :key="s"
+            @click="setStatus(s)"
+            class="px-4 py-1.5 rounded-full text-sm border transition"
+            :class="
+              localStatus === s
+                ? 'bg-black text-white border-black'
+                : 'bg-white border-gray-300 text-gray-700 hover:border-gray-900'
+            "
+          >
+            {{ s }}
+          </button>
+
+          <div class="ml-auto flex items-center gap-2">
+            <label class="text-xs text-gray-500">Sort by</label>
+            <select
+              v-model="localSort"
+              @change="applyFilters"
+              class="border border-gray-300 rounded-full px-3 py-1.5 text-xs text-gray-700 bg-white"
             >
-              {{ range.label }}
-            </button>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+            </select>
           </div>
         </div>
 
-        <!-- Instant Book -->
-        <button
-          @click="filterInstantBook = !filterInstantBook"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterInstantBook
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          Best Deal
-        </button>
-
-        <!-- New Launch -->
-        <button
-          @click="filterInstantBook = !filterInstantBook"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterInstantBook
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          New Launch
-        </button>
-
-        <!-- Under Construction -->
-        <button
-          @click="filterInstantBook = !filterInstantBook"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterInstantBook
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          Under Construction
-        </button>
-      </div>
-    </div>
-
-    <div class="mt-2 bg-white z-20" ref="containerRef">
-      <div class="w-full flex flex-col">
-        <!-- Search Bar -->
+        <!-- Filter panel -->
         <div
-          class="w-full p-[1px] rounded-full bg-gradient-to-r from-orange-500 to-red-600 shadow-md relative"
+          v-if="showFilters"
+          class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
         >
-          <div
-            class="w-full flex items-center bg-white rounded-full px-2 py-2 gap-2"
-          >
-            <!-- City dropdown -->
-            <div class="relative flex items-center shrink-0">
-              <button
-                type="button"
-                class="flex items-center gap-2 px-3 py-1 text-gray-700 font-medium outline-none hover:text-orange-600 transition-colors text-sm"
-                @click.stop="cityDropdownOpen = !cityDropdownOpen"
-              >
-                <span class="truncate max-w-[100px]">
-                  {{ selectedCity || "All cities" }}
-                </span>
-                <i
-                  class="pi text-[10px]"
-                  :class="
-                    cityDropdownOpen ? 'pi-chevron-up' : 'pi-chevron-down'
-                  "
-                ></i>
-              </button>
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Price</label>
+            <select
+              v-model="localPriceKey"
+              class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option v-for="r in PRICE_RANGES" :key="r.key" :value="r.key">
+                {{ r.label }}
+              </option>
+            </select>
+          </div>
 
-              <!-- Vertical Divider -->
-              <div class="h-5 w-px bg-gray-300 mx-2"></div>
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</label>
+            <select
+              v-model="localStatus"
+              class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Any status</option>
+              <option v-for="s in STATUS_OPTIONS" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
 
-              <ul
-                v-if="cityDropdownOpen"
-                class="absolute top-full left-0 mt-2 w-48 max-h-64 overflow-auto bg-white text-black rounded-xl shadow-lg border border-gray-200 z-30 text-sm"
-              >
-                <li
-                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  @click.stop="onCitySelect('')"
-                >
-                  All cities
-                </li>
-                <li
-                  v-for="city in uniqueCitiesData"
-                  :key="city"
-                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  @click.stop="onCitySelect(city)"
-                >
-                  {{ city }}
-                </li>
-              </ul>
-            </div>
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Sort by</label>
+            <select
+              v-model="localSort"
+              class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+            </select>
+          </div>
 
-            <!-- search input -->
-            <input
-              v-model="searchInput"
-              type="text"
-              class="w-full outline-none px-2 text-gray-600 placeholder-gray-400 text-sm"
-              placeholder="Search..."
-              autocomplete="off"
-            />
+          <div class="sm:col-span-2 lg:col-span-3 flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
             <button
-              @click="onSearchButtonClicked"
-              class="h-8 w-8 min-w-[2rem] rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white flex items-center justify-center shadow hover:shadow-md transition-shadow"
+              @click="resetFilters"
+              class="px-4 py-1.5 rounded-full text-sm text-gray-600 hover:text-gray-900"
             >
-              <i class="pi pi-search text-xs"></i>
+              Reset
             </button>
-
-            <!-- suggestions dropdown -->
-            <ul
-              v-if="suggestionsVisible && suggestionsList.length"
-              class="absolute left-0 right-0 top-full mt-2 max-h-60 overflow-auto bg-white text-black rounded-xl shadow-lg border border-gray-200 z-50"
+            <button
+              @click="applyFilters"
+              class="bg-black text-white px-5 py-1.5 rounded-full text-sm font-medium"
             >
-              <li
-                v-for="(suggestion, index) in suggestionsList"
-                :key="suggestion._id || index"
-                class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer"
-                @click="onSuggestionClick(suggestion?._id)"
-              >
-                {{ suggestion.title }}
-              </li>
-            </ul>
+              Apply filters
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="mt-6 space-y-6">
-      <div v-for="item in projectPropertyListData" class="border rounded-xl">
-        <div class="p-4 flex flex-col lg:flex-row gap-6">
-          <!-- LEFT IMAGE -->
-          <div class="w-full lg:w-[28%]">
+    <!-- Results -->
+    <section class="max-w-7xl mx-auto px-4 py-8">
+      <div
+        v-if="fallback && !loading"
+        class="mb-4 flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+      >
+        <i class="pi pi-info-circle mt-0.5"></i>
+        <span>{{ fallbackMessage }}</span>
+      </div>
+
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">
+          <span v-if="loading">Loading projects…</span>
+          <span v-else-if="total === 0">No projects found</span>
+          <span v-else>
+            {{ total }} project{{ total === 1 ? "" : "s" }}
+            <span v-if="localTerm"> for "{{ localTerm }}"</span>
+            <span v-if="localCity"> in {{ localCity }}</span>
+          </span>
+        </p>
+        <p v-if="totalPages > 1 && !fallback" class="text-xs text-gray-500">
+          Page {{ page }} of {{ totalPages }}
+        </p>
+      </div>
+
+      <div v-if="error" class="bg-red-50 text-red-600 text-sm rounded-xl p-3 mb-4">
+        {{ error }}
+      </div>
+
+      <div
+        v-if="loading"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <div
+          v-for="n in 6"
+          :key="n"
+          class="rounded-2xl bg-white border overflow-hidden animate-pulse"
+        >
+          <div class="h-44 bg-gray-100"></div>
+          <div class="p-4 space-y-2">
+            <div class="h-4 bg-gray-100 rounded w-3/4"></div>
+            <div class="h-3 bg-gray-100 rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else-if="!items.length"
+        class="text-center py-16 text-gray-500 bg-white rounded-2xl border"
+      >
+        <i class="pi pi-building text-5xl text-gray-300 mb-3 block"></i>
+        <p>No projects match your filters.</p>
+        <p class="text-sm mt-1">Try resetting filters or picking a different city.</p>
+      </div>
+
+      <div
+        v-else
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <article
+          v-for="item in items"
+          :key="item.id"
+          @click="goToProject(item)"
+          class="rounded-2xl bg-white border shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
+        >
+          <div class="relative h-48 overflow-hidden bg-gray-100">
             <img
-              :src="item?.propertyPictures[0]"
-              alt="project"
-              class="w-full h-[220px] md:h-[300px] object-cover rounded-xl"
+              v-if="item.image"
+              :src="item.image"
+              :alt="item.title"
+              class="w-full h-full object-cover"
             />
-          </div>
-
-          <!-- MIDDLE CONTENT -->
-          <div class="w-full lg:w-[52%] flex flex-col justify-between">
-            <!-- Title -->
-            <div>
-              <h2 @click="redirect(item?._id)" class="text-xl md:text-2xl font-semibold cursor-pointer">
-                {{ item?.projectName }}
-              </h2>
-              <p class="text-gray-500 text-sm mt-1">
-                {{ item?.builderName }} · {{ item?.venue }}
-              </p>
-
-              <!-- INFO ROWS -->
-              <div class="mt-5 space-y-4 text-sm">
-                <div class="flex items-center gap-3">
-                  <i class="pi pi-building text-gray-500"></i>
-                  <span class="text-gray-600">Project Size</span>
-                  <span class="ml-auto font-medium">0.64 Acre</span>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  <i class="pi pi-th-large text-gray-500"></i>
-                  <span class="text-gray-600">Configurations</span>
-                  <span class="ml-auto font-medium">1, 2 & 3 BHK</span>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  <i class="pi pi-home text-gray-500"></i>
-                  <span class="text-gray-600">Amenities</span>
-                  <span class="ml-auto font-medium text-right">
-                    Swimming Pool · Clubhouse +2
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- RIGHT PANEL -->
-          <div
-            class="w-full lg:w-[20%] bg-gray-50 rounded-xl flex flex-col justify-between p-4"
-          >
-            <div>
-              <p class="text-gray-400 text-sm">Area Range</p>
-              <h3 class="text-lg font-semibold mt-1">528 - 1610 sqft.</h3>
-            </div>
-
-            <button
-              class="mt-6 text-sm underline text-gray-700 hover:text-black"
-            >
-              DETAILS
-            </button>
-          </div>
-        </div>
-
-        <div
-          class="flex flex-col md:flex-row items-center justify-between gap-4 border-t px-4 py-4 bg-slate-100 rounded-b-xl"
-        >
-          <!-- TAGS -->
-          <div class="flex flex-wrap gap-2">
-            <span
-              class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium"
-            >
-              {{ item?.projectStatus }}
-            </span>
-            <span
-              class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium"
-            >
-              Dec 2024
-            </span>
-            <span class="text-gray-500 text-sm flex items-center gap-1">
-              RERA <i class="pi pi-info-circle"></i>
+            <div
+              v-else
+              class="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900"
+            ></div>
+            <span class="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-semibold bg-orange-50 text-orange-600 border border-orange-200">
+              Project
             </span>
           </div>
-
-          <!-- ACTION BUTTONS -->
-          <div class="flex gap-3">
-            <button
-              class="flex items-center gap-2 border px-6 py-2 rounded-lg text-sm bg-white hover:bg-gray-50"
+          <div class="p-4">
+            <h3 class="text-sm font-semibold text-gray-900 line-clamp-2">
+              {{ item.title }}
+            </h3>
+            <p class="text-xs text-gray-500 mt-1 line-clamp-1">
+              {{ item.subtitle || "—" }}
+            </p>
+            <p
+              v-if="item.minPrice || item.maxPrice"
+              class="text-sm font-semibold text-gray-900 mt-2"
             >
-              <i class="pi pi-download"></i>
-              Brochure
-            </button>
+              {{ formatINR(item.minPrice) }}
+              <span v-if="item.maxPrice" class="text-xs text-gray-500 font-normal">
+                – {{ formatINR(item.maxPrice) }}
+              </span>
+            </p>
             <button
-              class="flex items-center gap-2 bg-black text-white px-6 py-2 rounded-lg text-sm"
+              class="mt-3 w-full bg-black text-white text-xs py-2 rounded-full hover:bg-gray-800"
+              @click.stop="goToProject(item)"
             >
-              <i class="pi pi-phone"></i>
-              Contact
+              View details
             </button>
           </div>
-        </div>
+        </article>
       </div>
-    </div>
-  </section>
+
+      <div
+        v-if="totalPages > 1 && !fallback"
+        class="mt-8 flex items-center justify-center gap-2"
+      >
+        <button
+          @click="goToPage(page - 1)"
+          :disabled="page === 1"
+          class="px-3 py-1.5 rounded-full text-sm border border-gray-300 disabled:opacity-50"
+        >
+          <i class="pi pi-chevron-left text-xs"></i> Prev
+        </button>
+        <span class="text-sm text-gray-600 px-2">{{ page }} / {{ totalPages }}</span>
+        <button
+          @click="goToPage(page + 1)"
+          :disabled="page === totalPages"
+          class="px-3 py-1.5 rounded-full text-sm border border-gray-300 disabled:opacity-50"
+        >
+          Next <i class="pi pi-chevron-right text-xs"></i>
+        </button>
+      </div>
+    </section>
+  </main>
 </template>

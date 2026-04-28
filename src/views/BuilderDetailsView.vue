@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useBuilderStore } from "@/stores/builderStore";
+import { makeRequest } from "@/request/request";
+import endpoints from "@/request/endpoints";
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +24,70 @@ const contactForm = ref({
 
 const builder = computed(() => currentBuilder.value || {});
 
+// ---------- Builder's projects ----------
+const builderProjects = ref([]);
+const projectsLoading = ref(false);
+const projectsError = ref("");
+
+const formatINR = (n) => {
+  const num = Number(n || 0);
+  if (!num) return "Price on request";
+  if (num >= 10000000) return `₹ ${(num / 10000000).toFixed(2)} Cr`;
+  if (num >= 100000) return `₹ ${(num / 100000).toFixed(1)} L`;
+  return `₹ ${num.toLocaleString("en-IN")}`;
+};
+
+const goToProject = (id) => {
+  if (!id) return;
+  router.push(`/project-details/${id}`);
+};
+
+// We hit /search/list?type=project&term=<builderName> which filters across
+// builderName/projectName/description/venue, then we tighten that on the client
+// to only projects whose builderName actually matches the company.
+const loadBuilderProjects = async (term) => {
+  if (!term) {
+    builderProjects.value = [];
+    return;
+  }
+  projectsLoading.value = true;
+  projectsError.value = "";
+  try {
+    const res = await makeRequest(
+      endpoints.search,
+      "GET",
+      {},
+      {},
+      { type: "project", term, page: 1, limit: 24 },
+      0,
+    );
+    const list = res?.data?.results ?? [];
+    const normalized = (Array.isArray(list) ? list : [])
+      .map((entry) =>
+        entry && typeof entry === "object" && "doc" in entry ? entry.doc : entry,
+      )
+      .filter(Boolean);
+
+    // Tighten the match: case-insensitive equality on builderName when present.
+    const target = term.toLowerCase();
+    builderProjects.value = normalized.filter((p) => {
+      if (!p) return false;
+      const bn = (p.builderName || "").toLowerCase();
+      // Allow empty builderName projects through if the project name itself
+      // matches the company strongly (handles seed inconsistencies).
+      if (!bn) return (p.projectName || "").toLowerCase().includes(target);
+      return bn.includes(target);
+    });
+  } catch (err) {
+    console.error("loadBuilderProjects failed", err);
+    projectsError.value =
+      err?.response?.data?.message || "Failed to load projects";
+    builderProjects.value = [];
+  } finally {
+    projectsLoading.value = false;
+  }
+};
+
 const initials = (name) =>
   (name || "?")
     .split(" ")
@@ -34,12 +100,21 @@ const initials = (name) =>
 const loadBuilder = async (id) => {
   if (!id) return;
   await builderStore.getBuilderById(id);
+  await loadBuilderProjects(builder.value?.companyName);
 };
 
 onMounted(() => loadBuilder(route.params.id));
 watch(
   () => route.params.id,
   (id) => loadBuilder(id),
+);
+// If the builder loads after the page mounts (e.g. cache miss), fetch projects
+// once we know the company name.
+watch(
+  () => builder.value?.companyName,
+  (name, prev) => {
+    if (name && name !== prev) loadBuilderProjects(name);
+  },
 );
 
 const handleConnect = () => {
@@ -200,6 +275,101 @@ const handleConnect = () => {
             {{ submitMsg }}
           </p>
         </div>
+      </div>
+    </div>
+
+    <!-- Projects by this builder -->
+    <div class="mt-12">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-2xl font-marcellus text-gray-900">
+          Projects by {{ builder?.companyName || "this builder" }}
+        </h2>
+        <span v-if="builderProjects.length" class="text-xs text-gray-500">
+          {{ builderProjects.length }} project{{ builderProjects.length === 1 ? "" : "s" }}
+        </span>
+      </div>
+
+      <div v-if="projectsError" class="bg-red-50 text-red-600 text-sm rounded-xl p-3 mb-3">
+        {{ projectsError }}
+      </div>
+
+      <div
+        v-if="projectsLoading"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <div
+          v-for="n in 3"
+          :key="n"
+          class="rounded-2xl bg-white border overflow-hidden animate-pulse"
+        >
+          <div class="h-44 bg-gray-100"></div>
+          <div class="p-4 space-y-2">
+            <div class="h-4 bg-gray-100 rounded w-3/4"></div>
+            <div class="h-3 bg-gray-100 rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else-if="!builderProjects.length"
+        class="text-center py-12 text-gray-500 bg-white rounded-2xl border"
+      >
+        <i class="pi pi-building text-4xl text-gray-300 mb-2 block"></i>
+        <p class="text-sm">No projects listed for this builder yet.</p>
+      </div>
+
+      <div
+        v-else
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <article
+          v-for="proj in builderProjects"
+          :key="proj._id"
+          @click="goToProject(proj._id)"
+          class="rounded-2xl bg-white border shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
+        >
+          <div class="relative h-44 overflow-hidden bg-gray-100">
+            <img
+              v-if="proj.propertyPictures?.[0] || proj.floorPlan?.[0]"
+              :src="proj.propertyPictures?.[0] || proj.floorPlan?.[0]"
+              :alt="proj.projectName"
+              class="w-full h-full object-cover"
+            />
+            <div
+              v-else
+              class="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900"
+            ></div>
+            <span
+              v-if="proj.projectStatus"
+              class="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-semibold bg-orange-50 text-orange-600 border border-orange-200"
+            >
+              {{ proj.projectStatus }}
+            </span>
+          </div>
+          <div class="p-4">
+            <h3 class="text-sm font-semibold text-gray-900 line-clamp-2">
+              {{ proj.projectName || "Untitled project" }}
+            </h3>
+            <p class="text-xs text-gray-500 mt-1 line-clamp-1">
+              {{ proj.venue || proj.glocation || "—" }}
+            </p>
+            <p
+              v-if="proj.minPrice || proj.maxPrice"
+              class="text-sm font-semibold text-gray-900 mt-2"
+            >
+              {{ formatINR(proj.minPrice) }}
+              <span v-if="proj.maxPrice" class="text-xs text-gray-500 font-normal">
+                – {{ formatINR(proj.maxPrice) }}
+              </span>
+            </p>
+            <button
+              class="mt-3 w-full bg-black text-white text-xs py-2 rounded-full hover:bg-gray-800"
+              @click.stop="goToProject(proj._id)"
+            >
+              View project
+            </button>
+          </div>
+        </article>
       </div>
     </div>
   </section>

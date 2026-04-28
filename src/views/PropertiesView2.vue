@@ -1,609 +1,443 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from "vue";
-import { usePropertyStore } from "@/stores/propertyStore";
-import { storeToRefs } from "pinia";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import { storeToRefs } from "pinia";
 import { useSearchStore } from "@/stores/SearchStore";
+import { useProjectStore } from "@/stores/projectStore";
 import { debounce } from "@/utils/debounce";
-import { useShare } from "@/utils/useShare";
-import ShareModal from "@/components/ShareModal.vue";
-import PropertyMap from "@/components/PropertyMap.vue";
 
 const router = useRouter();
-
-const {
-  showShareModal,
-  shareUrl,
-  shareTitle,
-  openShareModal,
-  closeShareModal,
-} = useShare();
-
 const route = useRoute();
 
-const propertyStore = usePropertyStore();
-const {
-  propertyData,
-  pageNumber,
-  totalpages,
-  pageSize,
-} = storeToRefs(propertyStore);
-
 const searchStore = useSearchStore();
-const { searchSuggestionData, term } = storeToRefs(searchStore);
+const { items, total, loading, error, fallback, fallbackReason, page, limit } =
+  storeToRefs(searchStore);
 
-// UI state
-const searchInput = ref("");
-const suggestionsVisible = ref(false);
-const containerRef = ref(null);
+const projectStore = useProjectStore();
+const { uniqueCitiesData } = storeToRefs(projectStore);
 
-const selectedCity = ref("");
-const cityDropdownOpen = ref(false);
-const showBestDealsOnly = ref(false);
-const selectedType = ref("project");
+const localTerm = ref(String(route.query.q || ""));
+const localCity = ref(String(route.query.city || ""));
 
-// status filter
-const selectedStatuses = ref([]);
-
-// New Filters
-const filterFreeCancellation = ref(false);
-const filterInstantBook = ref(false);
-const priceDropdownOpen = ref(false);
-const selectedPriceRange = ref(null);
-
-const priceRanges = [
-  { label: "Under ₹50L", min: 0, max: 5000000 },
-  { label: "₹50L - ₹1Cr", min: 5000000, max: 10000000 },
-  { label: "₹1Cr - ₹3Cr", min: 10000000, max: 30000000 },
-  { label: "Above ₹3Cr", min: 30000000, max: Infinity },
+const PRICE_RANGES = [
+  { key: "any", label: "Any price", min: null, max: null },
+  { key: "u50", label: "Under ₹50L", min: 0, max: 5_000_000 },
+  { key: "50to100", label: "₹50L – ₹1Cr", min: 5_000_000, max: 10_000_000 },
+  { key: "100to300", label: "₹1Cr – ₹3Cr", min: 10_000_000, max: 30_000_000 },
+  { key: "above300", label: "Above ₹3Cr", min: 30_000_000, max: null },
 ];
+const BHK_OPTIONS = ["1BHK", "2BHK", "3BHK", "4BHK", "5BHK"];
+const UNIT_TYPES = ["Apartment", "Villa", "Studio", "Plot", "Commercial"];
 
-const togglePriceRange = (range) => {
-  if (selectedPriceRange.value?.label === range.label) {
-    selectedPriceRange.value = null;
-  } else {
-    selectedPriceRange.value = range;
-  }
-  priceDropdownOpen.value = false;
-};
+const localPriceKey = ref(String(route.query.priceKey || "any"));
+const localBhk = ref(
+  BHK_OPTIONS.includes(String(route.query.bhk)) ? String(route.query.bhk) : "",
+);
+const localUnitType = ref(
+  UNIT_TYPES.includes(String(route.query.unitType))
+    ? String(route.query.unitType)
+    : "",
+);
+const localSort = ref(String(route.query.sortBy || "newest"));
 
-const imageErrors = ref({});
-const handleImageError = (key) => {
-  imageErrors.value[key] = true;
-};
+const showFilters = ref(false);
 
-const suggestionsList = computed(() => {
-  if (Array.isArray(searchSuggestionData.value))
-    return searchSuggestionData.value;
-  return searchSuggestionData.value?.data || [];
+const resolvedPrice = computed(() => {
+  const r = PRICE_RANGES.find((p) => p.key === localPriceKey.value);
+  return r ? { min: r.min, max: r.max } : { min: null, max: null };
 });
 
-const performSearch = async () => {
-  await projectStore.getProjectPropertyList(
-    "project",
-    searchInput.value,
-    selectedCity.value,
-  );
-};
-
-onMounted(async () => {
-  if (route.query.city) {
-    selectedCity.value = route.query.city;
-  }
-
-  if (route.query.q || route.query.city) {
-    if (route.query.q) searchInput.value = route.query.q;
-    await performSearch();
-  } else {
-    await propertyStore.getProperty();
-  }
-  await propertyStore.getProperty();
+const activeFilterCount = computed(() => {
+  let n = 0;
+  if (localPriceKey.value !== "any") n++;
+  if (localBhk.value) n++;
+  if (localUnitType.value) n++;
+  if (localSort.value !== "newest") n++;
+  return n;
 });
 
-const formatINR = (num) => `₹ ${Number(num || 0).toLocaleString("en-IN")}`;
-
-const redirect = (id, type = selectedType.value) => {
-  if (type === "property") {
-    router.push(`/property-details/${id}`);
-  } else {
-    router.push(`/project-details/${id}`);
-  }
-};
-
-// suggestions
-const updateTermDebounced = debounce((value) => {
-  const v = value.trim();
-  if (!v) {
-    suggestionsVisible.value = false;
-    return;
-  }
-  term.value = v;
-  searchStore.getSearchSuggestion();
-}, 300);
-
-watch(searchInput, (newVal) => {
-  updateTermDebounced(newVal);
-  suggestionsVisible.value = newVal.trim().length > 0;
-});
-
-const suggestionRedirect = (suggestion) => {
-  if (!suggestion || !suggestion._id) return;
-  const type = (suggestion.itsTypeIs || "").toUpperCase();
-  if (type === "PROJECT") {
-    router.push(`/project-details/${suggestion._id}`);
-  } else if (type === "PROPERTY") {
-    router.push(`/property-details/${suggestion._id}`);
-  } else {
-    router.push(`/project-details/${suggestion._id}`);
-  }
-};
-
-const onSuggestionClick = (s) => {
-  router.push(`/project-details/${s}`);
-  suggestionsVisible.value = false;
-};
-
-const onSearchButtonClicked = () => {
-  suggestionsVisible.value = false;
-  performSearch();
-};
-
-// city filter (server request)
-async function fetchByCity(city) {
-  await projectStore.getProjectPropertyList(
-    "project",
-    searchInput.value,
-    city || "",
-  );
-}
-
-function onCitySelect(city) {
-  selectedCity.value = city;
-  cityDropdownOpen.value = false;
-  fetchByCity(city);
-}
-
-// close dropdowns on outside click
-const handleClickOutside = (e) => {
-  if (containerRef.value && !containerRef.value.contains(e.target)) {
-    suggestionsVisible.value = false;
-    cityDropdownOpen.value = false;
-  }
-};
-
-onMounted(() => document.addEventListener("click", handleClickOutside));
-onBeforeUnmount(() =>
-  document.removeEventListener("click", handleClickOutside),
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil((total.value || 0) / (limit.value || 12))),
 );
 
-// helpers
-const normalize = (str = "") => str.toString().toLowerCase().trim();
+const fallbackMessage = computed(() => {
+  if (!fallback.value) return "";
+  if (fallbackReason.value === "nearby-in-city") {
+    const c = localCity.value || "this area";
+    return `No exact match. Showing nearby properties in ${c}.`;
+  }
+  return "No exact match. Showing recent properties you might like.";
+});
 
-const isBestDeal = (project) => {
-  if (project.bestDeal || project.negotiable) return true;
-  const tags = project.tags || [];
-  return tags.some((t) => {
-    const txt = normalize(t.text);
-    return (
-      txt.includes("best deal") ||
-      txt.includes("negotiable") ||
-      txt.includes("offer") ||
-      txt.includes("exclusive")
-    );
+const goToProperty = (item) => {
+  if (!item?.id) return;
+  router.push(`/property-details/${item.id}`);
+};
+
+const syncUrl = () => {
+  const q = {};
+  if (localTerm.value?.trim()) q.q = localTerm.value.trim();
+  if (localCity.value) q.city = localCity.value;
+  if (localPriceKey.value && localPriceKey.value !== "any") q.priceKey = localPriceKey.value;
+  if (localBhk.value) q.bhk = localBhk.value;
+  if (localUnitType.value) q.unitType = localUnitType.value;
+  if (localSort.value && localSort.value !== "newest") q.sortBy = localSort.value;
+  if (page.value > 1) q.page = page.value;
+  router.replace({ path: "/properties", query: q });
+};
+
+const runFromState = async () => {
+  await searchStore.runSearch({
+    type: "property",
+    term: localTerm.value,
+    city: localCity.value,
+    priceMin: resolvedPrice.value.min,
+    priceMax: resolvedPrice.value.max,
+    bhk: localBhk.value,
+    unitType: localUnitType.value,
+    sortBy: localSort.value,
+    page: page.value,
+    limit: limit.value || 12,
   });
 };
 
-const matchesStatus = (project) => {
-  if (!selectedStatuses.value.length) return true;
-  const status = normalize(project.projectStatus || "");
-  return selectedStatuses.value.some((s) => status.includes(normalize(s)));
+const onSubmit = async () => {
+  page.value = 1;
+  syncUrl();
+  await runFromState();
 };
 
-// final list
-const filteredProjects = computed(() => {
-  const q = normalize(searchInput.value);
-  let list = projectPropertyListData.value || [];
+const liveSearch = debounce(async () => {
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+}, 400);
+watch(localTerm, () => liveSearch());
 
-  // text search
-  if (q) {
-    list = list.filter((p) => {
-      const name = normalize(p.projectName || p.title);
-      const loc = normalize(p.location);
-      const city = normalize(p.city);
-      const region = normalize(p.region);
-      const builder = normalize(p.builder?.name);
-      const priceStr = normalize(
-        `${p.priceMin || ""} ${p.priceMax || ""} ${p.price || ""}`,
-      );
-      const amenities = (p.amenities || [])
-        .map((a) => normalize(a.text))
-        .join(" ");
-      const crmName = normalize(p.crmDetails?.crmName);
+const setCity = async (c) => {
+  localCity.value = c;
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-      return (
-        name.includes(q) ||
-        loc.includes(q) ||
-        city.includes(q) ||
-        region.includes(q) ||
-        builder.includes(q) ||
-        priceStr.includes(q) ||
-        amenities.includes(q) ||
-        crmName.includes(q)
-      );
-    });
-  }
+const applyFilters = async () => {
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-  // Price Filter
-  if (selectedPriceRange.value) {
-    list = list.filter((p) => {
-      const price = p.priceMin || p.price || 0;
-      return (
-        price >= selectedPriceRange.value.min &&
-        price <= selectedPriceRange.value.max
-      );
-    });
-  }
+const resetFilters = async () => {
+  localPriceKey.value = "any";
+  localBhk.value = "";
+  localUnitType.value = "";
+  localSort.value = "newest";
+  page.value = 1;
+  syncUrl();
+  await runFromState();
+};
 
-  // Free Cancellation
-  if (filterFreeCancellation.value) {
-    list = list.filter(
-      (p) =>
-        p.freeCancellation ||
-        (p.tags &&
-          p.tags.some((t) =>
-            t.text.toLowerCase().includes("free cancellation"),
-          )),
-    );
-  }
+const goToPage = async (p) => {
+  if (p < 1 || p > totalPages.value || p === page.value) return;
+  page.value = p;
+  syncUrl();
+  await runFromState();
+  if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
-  // Instant Book
-  if (filterInstantBook.value) {
-    list = list.filter(
-      (p) =>
-        p.instantBook ||
-        (p.tags &&
-          p.tags.some((t) => t.text.toLowerCase().includes("instant book"))),
-    );
-  }
+watch(
+  () => route.fullPath,
+  () => {
+    if (route.path !== "/properties") return;
+    localTerm.value = String(route.query.q || "");
+    localCity.value = String(route.query.city || "");
+    localPriceKey.value = String(route.query.priceKey || "any");
+    localBhk.value = BHK_OPTIONS.includes(String(route.query.bhk))
+      ? String(route.query.bhk)
+      : "";
+    localUnitType.value = UNIT_TYPES.includes(String(route.query.unitType))
+      ? String(route.query.unitType)
+      : "";
+    localSort.value = String(route.query.sortBy || "newest");
+    page.value = parseInt(String(route.query.page || "1"), 10) || 1;
+    runFromState();
+  },
+);
 
-  // best-deal / negotiable
-  if (showBestDealsOnly.value) {
-    list = list.filter((p) => isBestDeal(p));
-  }
-
-  // status
-  list = list.filter((p) => matchesStatus(p));
-
-  return list;
+onMounted(async () => {
+  page.value = parseInt(String(route.query.page || "1"), 10) || 1;
+  await Promise.all([projectStore.getProjectCities(), runFromState()]);
 });
-
-const locationPills = computed(() => {
-  if (!projectPropertyListData.value) return [];
-  const regions = projectPropertyListData.value
-    .map((p) => p.region)
-    .filter((r) => r && r.trim().length > 0);
-  return [...new Set(regions)].slice(0, 5);
-});
-
-const selectLocation = (loc) => {
-  searchInput.value = loc;
-};
-
-const fetchProjects = async () => {
-  await projectStore.getProjectPropertyList(
-    selectedType.value,
-    "",
-    selectedCity.value || "",
-  );
-};
-
-watch([pageNumber, pageSize, selectedType], fetchProjects);
-
-const canPrev = computed(() => pageNumber.value > 1);
-const canNext = computed(() => pageNumber.value < totalpages.value);
-
-const prevPage = () => {
-  if (canPrev.value) pageNumber.value -= 1;
-};
-
-const nextPage = () => {
-  if (canNext.value) pageNumber.value += 1;
-};
-
-// Map Sync
-const mapRef = ref(null);
-const onCardHover = (project) => {
-  if (mapRef.value) {
-    mapRef.value.flyToProject(project);
-  }
-};
 </script>
 
 <template>
-  <section class="max-w-7xl mx-auto px-4 2xl:px-0 mt-20 pb-10">
-    <div class="flex flex-col xl:flex-row items-center justify-between">
-      <h1 class="title-text">Select to explore</h1>
-      <div
-        class="flex items-center justify-center xl:justify-start gap-3 flex-wrap mt-4 xl:mt-0"
-      >
-        <!-- Free Cancellation -->
-        <button
-          @click="filterFreeCancellation = !filterFreeCancellation"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterFreeCancellation
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          Negotiable
-        </button>
+  <main class="bg-gray-50 min-h-screen">
+    <!-- Search bar -->
+    <section class="bg-white border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 pt-24 pb-6">
+        <h1 class="text-3xl font-marcellus text-gray-900">Properties</h1>
+        <p class="text-sm text-gray-500 mt-1 mb-5">
+          Browse every listing on Roffr — from new launches to ready-to-move homes.
+        </p>
 
-        <!-- Price Dropdown -->
-        <div class="relative">
-          <button
-            @click.stop="priceDropdownOpen = !priceDropdownOpen"
-            class="px-4 py-2 rounded-full border text-sm font-medium transition-all flex items-center gap-2"
-            :class="
-              selectedPriceRange
-                ? 'bg-orange-50 border-orange-500 text-orange-600'
-                : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-            "
+        <div class="flex flex-col md:flex-row md:items-center gap-3">
+          <div class="flex-1 flex items-center gap-2 border border-gray-300 rounded-full px-4 py-2 bg-white">
+            <i class="pi pi-search text-gray-400"></i>
+            <input
+              v-model="localTerm"
+              @keyup.enter="onSubmit"
+              type="text"
+              placeholder="Search title, locality, building…"
+              class="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400"
+            />
+            <button
+              v-if="localTerm"
+              @click="localTerm = ''"
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <i class="pi pi-times-circle"></i>
+            </button>
+          </div>
+
+          <select
+            v-model="localCity"
+            @change="setCity(localCity)"
+            class="border border-gray-300 rounded-full px-4 py-2 text-sm text-gray-700 bg-white"
           >
-            {{ selectedPriceRange ? selectedPriceRange.label : "Price" }}
-            <i class="pi pi-angle-down text-xs"></i>
+            <option value="">All cities</option>
+            <option v-for="c in uniqueCitiesData" :key="c" :value="c">{{ c }}</option>
+          </select>
+
+          <button
+            @click="showFilters = !showFilters"
+            class="border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:border-orange-400 transition"
+            :class="showFilters ? 'bg-gray-900 text-white border-gray-900' : 'bg-white'"
+          >
+            <i class="pi pi-sliders-h text-xs"></i> Filters
+            <span
+              v-if="activeFilterCount > 0"
+              class="bg-orange-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+            >
+              {{ activeFilterCount }}
+            </span>
           </button>
 
-          <div
-            v-if="priceDropdownOpen"
-            class="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-30 overflow-hidden"
+          <button
+            @click="onSubmit"
+            class="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-2 rounded-full text-sm font-semibold shadow"
           >
-            <button
-              v-for="range in priceRanges"
-              :key="range.label"
-              @click="togglePriceRange(range)"
-              class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
-              :class="
-                selectedPriceRange?.label === range.label
-                  ? 'text-orange-600 font-medium bg-orange-50'
-                  : 'text-gray-700'
-              "
-            >
-              {{ range.label }}
-            </button>
-          </div>
+            Search
+          </button>
         </div>
 
-        <!-- Instant Book -->
-        <button
-          @click="filterInstantBook = !filterInstantBook"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterInstantBook
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          Best Deal
-        </button>
-
-        <!-- New Launch -->
-        <button
-          @click="filterInstantBook = !filterInstantBook"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterInstantBook
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          New Launch
-        </button>
-
-        <!-- Under Construction -->
-        <button
-          @click="filterInstantBook = !filterInstantBook"
-          class="px-4 py-2 rounded-full border text-sm font-medium transition-all"
-          :class="
-            filterInstantBook
-              ? 'bg-orange-50 border-orange-500 text-orange-600'
-              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-          "
-        >
-          Under Construction
-        </button>
-      </div>
-    </div>
-
-    <div class="mt-2 bg-white z-20" ref="containerRef">
-      <div class="w-full flex flex-col">
-        <!-- Search Bar -->
+        <!-- Filter panel -->
         <div
-          class="w-full p-[1px] rounded-full bg-gradient-to-r from-orange-500 to-red-600 shadow-md relative"
+          v-if="showFilters"
+          class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         >
-          <div
-            class="w-full flex items-center bg-white rounded-full px-2 py-2 gap-2"
-          >
-            <!-- City dropdown -->
-            <div class="relative flex items-center shrink-0">
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Price</label>
+            <select
+              v-model="localPriceKey"
+              class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option v-for="r in PRICE_RANGES" :key="r.key" :value="r.key">
+                {{ r.label }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">BHK</label>
+            <div class="mt-1 flex flex-wrap gap-1.5">
               <button
-                type="button"
-                class="flex items-center gap-2 px-3 py-1 text-gray-700 font-medium outline-none hover:text-orange-600 transition-colors text-sm"
-                @click.stop="cityDropdownOpen = !cityDropdownOpen"
+                @click="localBhk = ''"
+                class="px-3 py-1 rounded-full text-xs border transition"
+                :class="
+                  !localBhk
+                    ? 'bg-orange-500 border-orange-500 text-white'
+                    : 'bg-white border-gray-300 text-gray-600'
+                "
               >
-                <span class="truncate max-w-[100px]">
-                  {{ selectedCity || "All cities" }}
-                </span>
-                <i
-                  class="pi text-[10px]"
-                  :class="
-                    cityDropdownOpen ? 'pi-chevron-up' : 'pi-chevron-down'
-                  "
-                ></i>
+                Any
               </button>
-
-              <!-- Vertical Divider -->
-              <div class="h-5 w-px bg-gray-300 mx-2"></div>
-
-              <ul
-                v-if="cityDropdownOpen"
-                class="absolute top-full left-0 mt-2 w-48 max-h-64 overflow-auto bg-white text-black rounded-xl shadow-lg border border-gray-200 z-30 text-sm"
+              <button
+                v-for="b in BHK_OPTIONS"
+                :key="b"
+                @click="localBhk = b"
+                class="px-3 py-1 rounded-full text-xs border transition"
+                :class="
+                  localBhk === b
+                    ? 'bg-orange-500 border-orange-500 text-white'
+                    : 'bg-white border-gray-300 text-gray-600'
+                "
               >
-                <li
-                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  @click.stop="onCitySelect('')"
-                >
-                  All cities
-                </li>
-                <li
-                  v-for="city in uniqueCitiesData"
-                  :key="city"
-                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  @click.stop="onCitySelect(city)"
-                >
-                  {{ city }}
-                </li>
-              </ul>
+                {{ b }}
+              </button>
             </div>
+          </div>
 
-            <!-- search input -->
-            <input
-              v-model="searchInput"
-              type="text"
-              class="w-full outline-none px-2 text-gray-600 placeholder-gray-400 text-sm"
-              placeholder="Search..."
-              autocomplete="off"
-            />
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Unit type</label>
+            <select
+              v-model="localUnitType"
+              class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Any</option>
+              <option v-for="u in UNIT_TYPES" :key="u" :value="u">{{ u }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Sort by</label>
+            <select
+              v-model="localSort"
+              class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
+
+          <div class="sm:col-span-2 lg:col-span-4 flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
             <button
-              @click="onSearchButtonClicked"
-              class="h-8 w-8 min-w-[2rem] rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white flex items-center justify-center shadow hover:shadow-md transition-shadow"
+              @click="resetFilters"
+              class="px-4 py-1.5 rounded-full text-sm text-gray-600 hover:text-gray-900"
             >
-              <i class="pi pi-search text-xs"></i>
+              Reset
             </button>
-
-            <!-- suggestions dropdown -->
-            <ul
-              v-if="suggestionsVisible && suggestionsList.length"
-              class="absolute left-0 right-0 top-full mt-2 max-h-60 overflow-auto bg-white text-black rounded-xl shadow-lg border border-gray-200 z-50"
+            <button
+              @click="applyFilters"
+              class="bg-black text-white px-5 py-1.5 rounded-full text-sm font-medium"
             >
-              <li
-                v-for="(suggestion, index) in suggestionsList"
-                :key="suggestion._id || index"
-                class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer"
-                @click="onSuggestionClick(suggestion?._id)"
-              >
-                {{ suggestion.title }}
-              </li>
-            </ul>
+              Apply filters
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="mt-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- CARD -->
-        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border">
-          <!-- IMAGE -->
-          <div class="relative">
+    <!-- Results -->
+    <section class="max-w-7xl mx-auto px-4 py-8">
+      <div
+        v-if="fallback && !loading"
+        class="mb-4 flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+      >
+        <i class="pi pi-info-circle mt-0.5"></i>
+        <span>{{ fallbackMessage }}</span>
+      </div>
+
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">
+          <span v-if="loading">Loading properties…</span>
+          <span v-else-if="total === 0">No properties found</span>
+          <span v-else>
+            {{ total }} propert{{ total === 1 ? "y" : "ies" }}
+            <span v-if="localTerm"> for "{{ localTerm }}"</span>
+            <span v-if="localCity"> in {{ localCity }}</span>
+          </span>
+        </p>
+        <p v-if="totalPages > 1 && !fallback" class="text-xs text-gray-500">
+          Page {{ page }} of {{ totalPages }}
+        </p>
+      </div>
+
+      <div v-if="error" class="bg-red-50 text-red-600 text-sm rounded-xl p-3 mb-4">
+        {{ error }}
+      </div>
+
+      <div
+        v-if="loading"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <div
+          v-for="n in 6"
+          :key="n"
+          class="rounded-2xl bg-white border overflow-hidden animate-pulse"
+        >
+          <div class="h-44 bg-gray-100"></div>
+          <div class="p-4 space-y-2">
+            <div class="h-4 bg-gray-100 rounded w-3/4"></div>
+            <div class="h-3 bg-gray-100 rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else-if="!items.length"
+        class="text-center py-16 text-gray-500 bg-white rounded-2xl border"
+      >
+        <i class="pi pi-home text-5xl text-gray-300 mb-3 block"></i>
+        <p>No properties match your filters.</p>
+        <p class="text-sm mt-1">Try resetting filters or picking a different city.</p>
+      </div>
+
+      <div
+        v-else
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <article
+          v-for="item in items"
+          :key="item.id"
+          @click="goToProperty(item)"
+          class="rounded-2xl bg-white border shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
+        >
+          <div class="relative h-48 overflow-hidden bg-gray-100">
             <img
-              src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920"
-              class="w-full h-56 object-cover"
+              v-if="item.image"
+              :src="item.image"
+              :alt="item.title"
+              class="w-full h-full object-cover"
             />
-
-            <!-- Availability -->
-            <span
-              class="absolute top-3 left-3 bg-black/70 text-white text-xs px-3 py-1 rounded-full"
-            >
-              Available: Dec 27, 2028
-            </span>
-
-            <!-- Icons -->
-            <div class="absolute top-3 right-3 flex gap-2">
-              <i
-                class="pi pi-heart bg-white py-1.5 px-2 rounded-full text-sm cursor-pointer"
-              ></i>
-              <i
-                class="pi pi-share-alt bg-white py-1.5 px-2 rounded-full text-sm cursor-pointer"
-              ></i>
-            </div>
-          </div>
-
-          <!-- CONTENT -->
-          <div class="p-4 space-y-3">
-            <!-- Title -->
-            <div class="">
-              <h3 class="font-semibold text-lg">
-                B - 2701 / 2801, Godrej Five Gardens
-              </h3>
-              <p class="text-sm text-gray-500">Maheshwari Udyan , Matunga</p>
-            </div>
-
-            <!-- Price -->
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-[20px] font-semibold">₹ 18.50 Cr.</p>
-                <p class="text-[14px] text-gray-500">₹ 89,027 per sqft</p>
-              </div>
-
-              <span class="text-sm font-medium px-2 py-1 rounded-md">
-                Carpet: 2078.0 sqft
-              </span>
-            </div>
-
-            <!-- FEATURES -->
             <div
-              class="grid grid-cols-4 text-center text-sm font-medium bg-gray-100 rounded-lg py-3"
-            >
-              <div>
-                <i class="pi pi-home mb-1"></i>
-                <p>2.5 BHK</p>
-              </div>
-              <div>
-                <i class="pi pi-sliders-h mb-1"></i>
-                <p>3 Baths</p>
-              </div>
-              <div>
-                <i class="pi pi-car mb-1"></i>
-                <p>4 Parks</p>
-              </div>
-              <div>
-                <i class="pi pi-building mb-1"></i>
-                <p>Condition</p>
-              </div>
-            </div>
-
-            <!-- FOOTER INFO -->
-            <div class="flex justify-between text-sm text-gray-500 pt-2">
-              <div>
-                <p>Listing Realtor</p>
-                <p class="text-black font-medium">AssetPro</p>
-              </div>
-              <div class="text-right">
-                <p>Last Updated</p>
-                <p class="text-black font-medium">Mar 27, 2026</p>
-              </div>
-            </div>
+              v-else
+              class="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900"
+            ></div>
+            <span class="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-semibold bg-blue-50 text-blue-600 border border-blue-200">
+              Property
+            </span>
           </div>
-
-          <!-- ACTION BUTTONS -->
-          <div class="flex gap-2 p-3 border-t bg-gray-100 font-semibold">
+          <div class="p-4">
+            <h3 class="text-sm font-semibold text-gray-900 line-clamp-2">
+              {{ item.title }}
+            </h3>
+            <p class="text-xs text-gray-500 mt-1 line-clamp-1">
+              {{ item.subtitle || "—" }}
+            </p>
+            <p class="text-xs text-gray-700 mt-2">
+              <span v-if="item.bhk" class="mr-2">{{ item.bhk }}</span>
+              <span v-if="item.unitType" class="text-gray-500">{{ item.unitType }}</span>
+            </p>
             <button
-              class="flex-1 border rounded-lg py-2 flex items-center justify-center gap-2 text-sm bg-white"
+              class="mt-3 w-full bg-black text-white text-xs py-2 rounded-full hover:bg-gray-800"
+              @click.stop="goToProperty(item)"
             >
-              <i class="pi pi-whatsapp text-green-500"></i>
-              Whatsapp
-            </button>
-
-            <button
-              class="flex-1 bg-black text-white rounded-lg py-2 flex items-center justify-center gap-2 text-sm"
-            >
-              <i class="pi pi-phone"></i>
-              Contact
+              View details
             </button>
           </div>
-        </div>
+        </article>
       </div>
-    </div>
-  </section>
+
+      <div
+        v-if="totalPages > 1 && !fallback"
+        class="mt-8 flex items-center justify-center gap-2"
+      >
+        <button
+          @click="goToPage(page - 1)"
+          :disabled="page === 1"
+          class="px-3 py-1.5 rounded-full text-sm border border-gray-300 disabled:opacity-50"
+        >
+          <i class="pi pi-chevron-left text-xs"></i> Prev
+        </button>
+        <span class="text-sm text-gray-600 px-2">{{ page }} / {{ totalPages }}</span>
+        <button
+          @click="goToPage(page + 1)"
+          :disabled="page === totalPages"
+          class="px-3 py-1.5 rounded-full text-sm border border-gray-300 disabled:opacity-50"
+        >
+          Next <i class="pi pi-chevron-right text-xs"></i>
+        </button>
+      </div>
+    </section>
+  </main>
 </template>
