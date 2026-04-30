@@ -17,8 +17,9 @@ onMounted(fetchBlogs);
 // refetch when page or page size changes
 watch([pageNumber, pageSize], fetchBlogs);
 
-const redirect = (id) => {
-  router.push(`/blog-details/${id}`);
+
+const goToBlog = (slug) => {
+  router.push(`/blog-details/${slug}`);
 };
 
 const canPrev = computed(() => pageNumber.value > 1);
@@ -42,56 +43,56 @@ const nextPage = () => {
       </p>
     </div>
 
-    <div class="grid gap-5 md:grid-cols-2">
-      <article
-        v-for="blog in blogData"
-        :key="blog._id"
-        class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex cursor-pointer hover:shadow-md transition-shadow"
-        @click="redirect(blog._id)"
-      >
-        <div class="w-32 sm:w-40 md:w-44 h-28 sm:h-32 md:h-36 flex-shrink-0">
-          <img
-            :src="blog.coverImage"
-            :alt="blog.title"
-            class="w-full h-full object-cover"
-          />
-        </div>
+    <section class="px-4">
+      <div class="">
+        <!-- Heading -->
+        <div class="px-6 mt-6">
+          <!-- Carousel Wrapper -->
+          <div class="mt-6 overflow-x-auto scrollbar-hide">
+            <div class="flex gap-6 snap-x snap-mandatory scroll-smooth">
+              <div
+                v-for="blog in blogs"
+                :key="blog.id"
+                class="min-w-[85%] sm:min-w-[48%] lg:min-w-[32%] snap-start"
+              >
+                <!-- Card -->
+                <div
+                  class="border rounded-2xl overflow-hidden flex flex-col h-full bg-white"
+                >
+                  <!-- Image -->
+                  <div class="h-60 w-full">
+                    <img
+                      :src="blog.img"
+                      alt="Blog Image"
+                      class="h-full w-full object-cover"
+                    />
+                  </div>
 
-        <div class="flex-1 p-3 sm:p-4 flex flex-col justify-between">
-          <div>
-            <h2
-              class="font-outfit font-semibold text-sm sm:text-base md:text-lg line-clamp-2"
-            >
-              {{ blog.title }}
-            </h2>
-            <p class="mt-1 text-[11px] sm:text-xs text-gray-500 line-clamp-2">
-              {{ blog.description }}
-            </p>
-          </div>
+                  <!-- Content -->
+                  <div class="p-4 flex flex-col flex-1">
+                    <h2 class="font-semibold text-lg leading-relaxed">
+                      {{ blog.title }}
+                    </h2>
 
-          <div
-            class="mt-3 flex items-center justify-between text-[11px] sm:text-xs text-gray-400"
-          >
-            <span>
-              {{
-                new Date(blog.createdAt).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })
-              }}
-            </span>
-            <button
-              class="flex items-center gap-1 text-[#EB3131]"
-              @click.stop="redirect(blog._id)"
-            >
-              <span class="hidden sm:inline">Read more</span>
-              <i class="pi pi-arrow-right text-[10px]"></i>
-            </button>
+                    <p class="text-sm text-gray-500 mt-2 flex-1">
+                      {{ blog.description?.slice(0, 100) }}...
+                    </p>
+
+                    <!-- Button -->
+                    <button
+                      class="mt-4 w-full border rounded-lg py-2 text-sm font-medium hover:bg-gray-100 transition"
+                      @click="goToBlog(blog.slug)"
+                    >
+                      Read More
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </article>
-    </div>
+      </div>
+    </section>
 
     <!-- Prev / Page X of Y / Next -->
     <div

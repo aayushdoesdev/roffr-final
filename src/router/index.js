@@ -28,6 +28,7 @@ import BrokerDetailsView from '@/views/BrokerDetailsView.vue'
 import BuilderListView from '@/views/BuilderListView.vue'
 import BuilderDetailsView from '@/views/BuilderDetailsView.vue'
 import SocialView from '@/views/SocialView.vue'
+import NewsDetails from '@/views/NewsDetails.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -154,8 +155,13 @@ const router = createRouter({
         },
         {
           name: "blog-details",
-          path: "/blog-details/:id",
+          path: "/blog-details/:slug",
           component: BlogDetails
+        },
+        {
+          name: "news-details",
+          path: "/news/:id",
+          component: NewsDetails
         },
         {
           name: "case-details",

@@ -56,7 +56,7 @@ onMounted(async () => {
 
 <template>
   <section class="max-w-7xl mx-auto py-10 px-4 2xl:px-0">
-    <h1 class="title-text text-center">Properties For Rent</h1>
+    <h1 class="title-text text-center">Properties For Sale</h1>
 
     <div v-if="cards.length === 0" class="text-center mt-10 text-gray-500">
       No properties available right now.

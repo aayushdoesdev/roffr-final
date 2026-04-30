@@ -40,17 +40,17 @@ const links = [
   { label: "Builders", path: "/builders" },
   { label: "Channel Partners", path: "/channel-partners" },
   { label: "Community", path: "/social" },
-  // { label: "About Us", path: "/about" },
-  // {
-  //   label: "Resources",
-  //   path: "/resources",
-  //   dropdown: [
-  //     { label: "Articles", path: "/articles" },
-  //     { label: "News", path: "/news" },
-  //     { label: "Case Studies", path: "/case-study" },
-  //   ],
-  // },
-  // { label: "Loan", path: "/loan" },
+  { label: "About Us", path: "/about" },
+  {
+    label: "Resources",
+    path: "/resources",
+    dropdown: [
+      { label: "Articles", path: "/articles" },
+      { label: "News", path: "/news" },
+      { label: "Case Studies", path: "/case-study" },
+    ],
+  },
+  { label: "Loan", path: "/loan" },
   // { label: "Corporate", path: "/corporate" },
 ];
 

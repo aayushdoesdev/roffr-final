@@ -1,23 +1,17 @@
 <script setup>
-import { computed, watch, onMounted } from "vue";
-import { useBlogStore } from "@/stores/blogsStore";
-import { storeToRefs } from "pinia";
+import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { pdfs } from "@/data/pdfs.js";
 
-const blogStore = useBlogStore();
-const { blogData, pageNumber, totalpages, pageSize } = storeToRefs(blogStore);
 const router = useRouter();
 
-const fetchBlogs = async () => {
-  await blogStore.getBlogData();
-};
 
-onMounted(fetchBlogs);
+const selectedPdf = ref(null);
+const open = ref(false);
 
-watch([pageNumber, pageSize], fetchBlogs);
-
-const redirect = (id) => {
-  router.push(`/blog-details/${id}`);
+const openPdf = (pdf) => {
+  selectedPdf.value = pdf;
+  open.value = true;
 };
 
 const canPrev = computed(() => pageNumber.value > 1);
@@ -41,59 +35,110 @@ const nextPage = () => {
       </p>
     </div>
 
-    <div class="grid gap-6 md:grid-cols-2">
-      <article
-        v-for="blog in blogData"
-        :key="blog._id"
-        class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 group"
-        @click="redirect(blog._id)"
-      >
-        <div class="flex flex-col sm:flex-row h-full">
-          <div class="w-full sm:w-2/5 h-48 sm:h-auto flex-shrink-0">
-            <img
-              :src="blog.coverImage"
-              :alt="blog.title"
-              class="w-full h-full object-cover"
-            />
-          </div>
-
-          <div class="flex-1 p-4 sm:p-5 flex flex-col justify-between">
-            <div>
-              <h2
-                class="font-outfit font-bold text-base sm:text-lg md:text-xl line-clamp-2 mb-2 group-hover:text-[#EB3131] transition-colors"
+    <div class="">
+      <!-- Heading -->
+      <div class="px-6 mt-6">
+        <!-- Carousel Wrapper -->
+        <div class="mt-6 overflow-x-auto scrollbar-hide">
+          <div class="flex gap-6 snap-x snap-mandatory scroll-smooth">
+            <div
+              v-for="pdf in pdfs"
+              :key="pdf.id"
+              class="min-w-[85%] sm:min-w-[48%] lg:min-w-[32%] snap-start"
+            >
+              <!-- Card -->
+              <div
+                class="border rounded-2xl overflow-hidden flex flex-col h-full bg-white"
               >
-                {{ blog.title }}
-              </h2>
-              <p class="text-xs sm:text-sm text-gray-600 line-clamp-3 mb-4">
-                {{ blog.description }}
-              </p>
-            </div>
-
-            <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white text-xs font-semibold">
-                  {{ blog.author?.name?.charAt(0) || 'D' }}
+                <!-- Image -->
+                <div class="h-60 w-full">
+                  <img
+                    :src="pdf.img"
+                    alt="Blog Image"
+                    class="h-full w-full object-cover"
+                  />
                 </div>
-                <span class="text-xs sm:text-sm font-medium text-gray-700">
-                  {{ blog.author?.name || 'Roffr Team' }}
-                </span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-gray-500">
-                  {{
-                    new Date(blog.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  }}
-                </span>
-                <i class="pi pi-bookmark text-gray-400 text-sm hover:text-[#EB3131] transition-colors"></i>
+
+                <!-- Content -->
+                <div class="p-4 flex flex-col flex-1">
+                  <h2 class="font-semibold text-lg leading-relaxed">
+                    {{ pdf.title }}
+                  </h2>
+
+                  <p class="text-sm text-gray-500 mt-2 flex-1">
+                    {{
+                      pdf.description?.length > 100
+                        ? pdf.description.slice(0, 100) + "..."
+                        : pdf.description
+                    }}
+                  </p>
+
+                  <!-- Button -->
+                  <button
+                    class="mt-4 w-full border rounded-lg py-2 text-sm font-medium hover:bg-gray-100 transition"
+                    @click="openPdf(pdf)"
+                  >
+                    Read More
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </article>
+      </div>
+
+      <!-- 🔥 Custom Modal -->
+      <div
+        v-if="open"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <!-- Overlay -->
+        <div
+          class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          @click="open = false"
+        ></div>
+
+        <!-- Modal Content -->
+        <div
+          class="relative bg-white w-[95%] max-w-6xl rounded-2xl shadow-lg overflow-hidden"
+        >
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h2 class="text-lg font-semibold truncate">
+              {{ selectedPdf?.title }}
+            </h2>
+
+            <div class="flex items-center gap-2">
+              <!-- Download -->
+              <a
+                :href="selectedPdf?.url"
+                target="_blank"
+                class="text-sm border px-3 py-1 rounded-md hover:bg-gray-100 transition"
+              >
+                Download
+              </a>
+
+              <!-- Close -->
+              <button
+                class="text-sm border px-3 py-1 rounded-md hover:bg-gray-100 transition"
+                @click="open = false"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <!-- PDF Viewer -->
+          <div class="p-4">
+            <iframe
+              v-if="selectedPdf"
+              :key="selectedPdf.url"
+              :src="selectedPdf.url"
+              class="w-full h-[80vh] rounded-lg border"
+            ></iframe>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div

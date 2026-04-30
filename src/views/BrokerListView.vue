@@ -130,10 +130,10 @@ const initials = (name) =>
             <span class="text-gray-500">Phone</span>
             <span class="text-gray-800">{{ broker?.phoneNumber || "—" }}</span>
           </div>
-          <div class="flex justify-between py-1 text-xs">
+          <!-- <div class="flex justify-between py-1 text-xs">
             <span class="text-gray-500">Site visits</span>
             <span class="text-gray-800">{{ broker?.totalSiteVisits ?? 0 }}</span>
-          </div>
+          </div> -->
 
           <button
             class="mt-3 w-full bg-black text-white text-xs py-2 rounded-full hover:bg-gray-800 transition"

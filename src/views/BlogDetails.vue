@@ -1,42 +1,69 @@
 <script setup>
-import { onMounted } from 'vue';
-import { useBlogStore } from '@/stores/blogsStore';
-import { storeToRefs } from 'pinia';
-import { useRoute } from 'vue-router';
-
-const blogStore = useBlogStore()
+import { useRoute } from "vue-router";
+import { computed } from "vue";
+import { useBlogStore } from "@/stores/blogsStore";
 
 const route = useRoute();
-const blogId = route.params.id;
+const blogStore = useBlogStore();
 
-const {specificBlogData} = storeToRefs(blogStore)
-
-onMounted(async () => {
-  await blogStore.getBlogsByid(blogId);
-});
+const blog = computed(() => blogStore.getBlogBySlug(route.params.slug));
 </script>
 
 <template>
-    <main class="max-w-5xl mx-auto px-4 xl:px-0 py-20">
-        <div class="">
-            <h1 class="title-text text-center">{{ specificBlogData.title }}</h1>
-            <div class="flex items-center justify-between gap-4 mt-8">
-                <div class="flex items-center gap-2 px-4">
-                    <i class="pi pi-heart"></i>
-                    <p>{{ specificBlogData?.likes }} Likes</p>
-                </div>
-                <div class="flex items-center gap-2 px-4">
-                    <i class="pi pi-eye"></i>
-                    <p>{{ specificBlogData?.views }} Views</p>
-                </div>
-            </div>
-        </div>
+  <div class="max-w-7xl mx-auto py-16 px-4 2xl:px-0">
+    <div v-if="blog">
+      <!-- 🔥 Category + Read Time -->
+      <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-10">
+        <span class="bg-gray-100 px-3 py-1 rounded-full">
+          {{ blog.category }}
+        </span>
 
-        <div class="mt-4">
-            <img :src="specificBlogData?.coverImage" alt="" class="rounded-xl">
-        </div>
+        <span>⏱ {{ blog.reading_time_min }} min read</span>
+        <span>🌐 {{ blog.language }}</span>
+      </div>
 
-        <p v-html="specificBlogData?.content" class="mt-4"></p>
-    </main>
+      <div class="">
+        <img
+          :src="blog.img"
+          :alt="blog.title"
+          class="h-[450px] w-full object-cover rounded-lg mt-4"
+        />
+      </div>
+
+      <!-- 🧠 Title -->
+      <h1 class="text-3xl md:text-4xl font-bold mt-4 leading-tight font-urbanist">
+        {{ blog.title }}
+      </h1>
+
+      <!-- ✍️ Description -->
+      <p class="mt-4 text-md font-urbanist">
+        {{ blog.description }}
+      </p>
+
+      <!-- 🏷 Tags -->
+      <div class="mt-4 flex flex-wrap gap-2">
+        <span
+          v-for="tag in blog.tags"
+          :key="tag"
+          class="text-xs border px-2 py-1 rounded-full"
+        >
+          #{{ tag }}
+        </span>
+      </div>
+
+      <!-- 📖 Content -->
+      <div
+        class="prose prose-lg max-w-none mt-8 font-urbanist"
+        v-html="blog.content_html"
+      ></div>
+
+      <!-- 🔍 SEO (optional/debug) -->
+      <div class="mt-10 p-4 bg-black/10 rounded-lg text-sm">
+        <p><strong>Meta Title:</strong> {{ blog.seo.meta_title }}</p>
+        <p><strong>Description:</strong> {{ blog.seo.meta_description }}</p>
+      </div>
+    </div>
+
+    <div v-else class="text-center py-20 text-gray-500">Blog not found</div>
+  </div>
 </template>
-
